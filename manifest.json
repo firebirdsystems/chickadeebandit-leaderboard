@@ -1,0 +1,23 @@
+{
+  "id": "leaderboard",
+  "name": "Leaderboard",
+  "version": "1.0.0",
+  "description": "Track wins and ratings across any competition — video games, foosball, board games, and more. Elo-based ratings reward beating stronger opponents and winning with weaker teammates.",
+  "entrypoint": "index.html",
+  "runtime": "static",
+  "category": "family",
+  "tags": ["game", "competition", "stats", "fun", "family"],
+  "data_access": {
+    "reads": ["family.members"],
+    "writes": []
+  },
+  "permissions": {
+    "default_audience": "everyone",
+    "requires_approval": false
+  },
+  "storage": "db",
+  "icon": "🏆",
+  "nav": { "label": "Leaderboard" },
+  "widget": { "label": "Rankings", "size": "medium" },
+  "subscribes_to": ["quiet-time.session-completed"]
+}

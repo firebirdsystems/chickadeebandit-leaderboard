@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <base href="/run/leaderboard/" />
+  <title>Leaderboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--hub-font, system-ui, sans-serif);
+      font-size: var(--hub-font-size, 15px);
+      background: var(--hub-bg, #f9fafb);
+      color: var(--hub-text, #111827);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── App header ── */
+    .app-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 20px 0;
+    }
+    .back-btn {
+      background: none;
+      border: none;
+      font-size: 1.1rem;
+      cursor: pointer;
+      color: var(--hub-primary, #6366f1);
+      padding: 0;
+      font-family: inherit;
+      display: none;
+    }
+    .back-btn.visible { display: inline-flex; align-items: center; gap: 4px; }
+    .back-btn span { font-size: 0.9rem; }
+    .app-title { font-size: 1.25rem; font-weight: 700; flex: 1; }
+
+    /* ── Tab nav ── */
+    .tab-nav {
+      display: flex;
+      border-bottom: 1px solid var(--hub-border, #e5e7eb);
+      padding: 0 20px;
+      margin-top: 12px;
+      gap: 0;
+    }
+    .tab-nav button {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 8px 14px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      color: var(--hub-text-muted, #6b7280);
+      transition: color .15s, border-color .15s;
+      margin-bottom: -1px;
+    }
+    .tab-nav button.active {
+      color: var(--hub-primary, #6366f1);
+      border-bottom-color: var(--hub-primary, #6366f1);
+    }
+
+    /* ── Views ── */
+    .view { display: none; padding: 20px; flex: 1; }
+    .view.active { display: block; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--hub-surface, #fff);
+      border: 1px solid var(--hub-border, #e5e7eb);
+      border-radius: var(--hub-radius, 8px);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--hub-text-muted, #6b7280);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 14px;
+    }
+
+    /* ── Member avatar ── */
+    .member-avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+    .member-avatar.sm { width: 24px; height: 24px; font-size: 0.7rem; }
+
+    /* ── Leaderboard rows ── */
+    .lb-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--hub-border, #e5e7eb);
+    }
+    .lb-row:last-child { border-bottom: none; }
+    .lb-rank { font-size: 1.2rem; width: 28px; text-align: center; flex-shrink: 0; }
+    .lb-name { flex: 1; font-weight: 600; }
+    .lb-meta { font-size: 0.8rem; color: var(--hub-text-muted, #6b7280); }
+    .lb-rating { font-weight: 700; font-size: 1rem; color: var(--hub-primary, #6366f1); }
+    .lb-record { font-size: 0.8rem; color: var(--hub-text-muted, #6b7280); margin-top: 2px; }
+    .lb-no-rating { font-size: 0.8rem; color: var(--hub-text-muted, #6b7280); font-style: italic; }
+
+    /* ── Category champions ── */
+    .champions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 8px;
+    }
+    .champion-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--hub-bg, #f9fafb);
+      border: 1px solid var(--hub-border, #e5e7eb);
+      border-radius: var(--hub-radius, 6px);
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: border-color .15s;
+    }
+    .champion-chip:hover { border-color: var(--hub-primary, #6366f1); }
+    .champion-icon { font-size: 1.1rem; flex-shrink: 0; }
+    .champion-info { min-width: 0; }
+    .champion-cat { font-size: 0.75rem; color: var(--hub-text-muted, #6b7280); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .champion-name { font-size: 0.85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Categories grid ── */
+    .categories-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .category-card {
+      background: var(--hub-surface, #fff);
+      border: 1px solid var(--hub-border, #e5e7eb);
+      border-radius: var(--hub-radius, 8px);
+      padding: 16px 14px;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .category-card:hover { border-color: var(--hub-primary, #6366f1); box-shadow: 0 2px 8px rgba(99,102,241,.08); }
+    .category-card-icon { font-size: 1.8rem; }
+    .category-card-name { font-weight: 600; font-size: 0.95rem; }
+    .category-card-meta { font-size: 0.75rem; color: var(--hub-text-muted, #6b7280); }
+
+    .add-category-card {
+      background: none;
+      border: 2px dashed var(--hub-border, #e5e7eb);
+      border-radius: var(--hub-radius, 8px);
+      padding: 16px 14px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: var(--hub-text-muted, #6b7280);
+      font-family: inherit;
+      font-size: 0.85rem;
+      transition: border-color .15s, color .15s;
+      min-height: 100px;
+    }
+    .add-category-card:hover { border-color: var(--hub-primary, #6366f1); color: var(--hub-primary, #6366f1); }
+    .add-category-card .plus { font-size: 1.5rem; }
+
+    /* ── Recent matches ── */
+    .match-row {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--hub-border, #e5e7eb);
+      font-size: 0.9rem;
+    }
+    .match-row:last-child { border-bottom: none; }
+    .match-teams { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .match-team { display: flex; align-items: center; gap: 4px; }
+    .match-team.winner { font-weight: 700; }
+    .match-vs { font-size: 0.75rem; color: var(--hub-text-muted, #6b7280); }
+    .match-result { font-size: 0.75rem; color: var(--hub-text-muted, #6b7280); margin-top: 4px; display: flex; align-items: center; gap: 8px; }
+    .match-delta { font-size: 0.75rem; }
+    .match-delta.pos { color: #10b981; }
+    .match-delta.neg { color: #ef4444; }
+
+    /* ── Record form ── */
+    .record-step { display: none; }
+    .record-step.active { display: block; }
+    .record-step-header { font-size: 0.8rem; font-weight: 600; color: var(--hub-text-muted, #6b7280); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 16px; }
+
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-weight: 500; margin-bottom: 6px; font-size: 0.9rem; }
+    .form-group select, .form-group input[type="text"], .form-group textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--hub-border, #e5e7eb);
+      border-radius: var(--hub-radius, 6px);
+      background: var(--hub-bg, #f9fafb);
+      color: var(--hub-text, #111827);
+      font-size: inherit;
+      font-family: inherit;
+    }
+    .form-group textarea { resize: vertical; min-height: 60px; }
+
+    .team-builder { display: flex; flex-direction: column; gap: 16px; margin-bottom: 18px; }
+    .team-section { }
+    .team-section-label { font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; }
+    .team-slots { display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px; padding: 8px; background: var(--hub-bg, #f9fafb); border: 1px solid var(--hub-border, #e5e7eb); border-radius: var(--hub-radius, 6px); }
+
+    .member-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+    .member-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border: 1.5px solid var(--hub-border, #e5e7eb);
+      border-radius: 99px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all .15s;
+      user-select: none;
+    }
+    .member-chip.team-a { border-color: #6366f1; background: #eef2ff; }
+    .member-chip.team-b { border-color: #f59e0b; background: #fffbeb; }
+    .member-chip .chip-label { font-size: 0.7rem; font-weight: 700; }
+
+    .result-options { display: flex; gap: 8px; flex-wrap: wrap; }
+    .result-btn {
+      flex: 1;
+      min-width: 100px;
+      padding: 12px 16px;
+      border: 2px solid var(--hub-border, #e5e7eb);
+      border-radius: var(--hub-radius, 8px);
+      background: var(--hub-surface, #fff);
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all .15s;
+    }
+    .result-btn:hover { border-color: var(--hub-primary, #6366f1); background: var(--hub-bg, #f9fafb); }
+    .result-btn.selected { border-color: var(--hub-primary, #6366f1); background: color-mix(in srgb, var(--hub-primary, #6366f1) 8%, transparent); color: var(--hub-primary, #6366f1); }
+    .result-btn.team-a-win.selected { border-color: #6366f1; background: #eef2ff; color: #4f46e5; }
+    .result-btn.team-b-win.selected { border-color: #f59e0b; background: #fffbeb; color: #d97706; }
+    .result-btn.draw-win.selected { border-color: #10b981; background: #f0fdf4; color: #059669; }
+
+    .btn-primary {
+      background: var(--hub-primary, #6366f1);
+      color: var(--hub-primary-fg, #fff);
+      border: none;
+      border-radius: var(--hub-radius, 6px);
+      padding: 10px 20px;
+      font-size: 1rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      width: 100%;
+      transition: background .15s;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--hub-primary-hover, #4f46e5); }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: var(--hub-surface, #fff);
+      color: var(--hub-text, #111827);
+      border: 1px solid var(--hub-border, #e5e7eb);
+      border-radius: var(--hub-radius, 6px);
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-secondary:hover { background: var(--hub-bg, #f9fafb); }
+
+    .step-actions { display: flex; gap: 8px; margin-top: 20px; }
+    .step-actions .btn-secondary { flex: 0 0 auto; }
+    .step-actions .btn-primary { flex: 1; }
+
+    /* ── Modal ── */
+    .modal-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.35);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--hub-surface, #fff);
+      border-radius: var(--hub-radius, 10px);
+      padding: 24px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+    .modal h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; }
+
+    .emoji-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    .emoji-btn {
+      font-size: 1.3rem;
+      background: none;
+      border: 1.5px solid transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      padding: 4px;
+      transition: border-color .1s, background .1s;
+      aspect-ratio: 1;
+    }
+    .emoji-btn:hover { background: var(--hub-bg, #f9fafb); }
+    .emoji-btn.selected { border-color: var(--hub-primary, #6366f1); background: color-mix(in srgb, var(--hub-primary, #6366f1) 8%, transparent); }
+
+    .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
+    .modal-actions .btn-secondary { flex: 0 0 auto; }
+    .modal-actions .btn-primary { flex: 1; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--hub-text-muted, #6b7280);
+    }
+    .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .empty-state p { font-size: 0.9rem; }
+
+    /* ── Success flash ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #111827;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 99px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity .2s;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .toast.visible { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<div class="app-header">
+  <button class="back-btn" id="back-btn" onclick="goBack()">← <span id="back-label">Back</span></button>
+  <h1 class="app-title" id="app-title">🏆 Leaderboard</h1>
+</div>
+
+<nav class="tab-nav" id="tab-nav">
+  <button class="active" onclick="switchTab('rankings')">Rankings</button>
+  <button onclick="switchTab('categories')">Categories</button>
+  <button onclick="switchTab('record')">+ Record</button>
+</nav>
+
+<!-- ── Rankings tab ── -->
+<div id="view-rankings" class="view active">
+  <div class="card">
+    <div class="card-title">Overall Rankings</div>
+    <div id="overall-list">
+      <div class="empty-state"><div class="empty-icon">🏆</div><p>No matches recorded yet</p></div>
+    </div>
+  </div>
+  <div class="card" id="champions-card" style="display:none">
+    <div class="card-title">Category Champions</div>
+    <div class="champions-grid" id="champions-grid"></div>
+  </div>
+</div>
+
+<!-- ── Categories tab ── -->
+<div id="view-categories" class="view">
+  <div class="categories-grid" id="categories-grid">
+    <button class="add-category-card" onclick="openNewCategory()">
+      <span class="plus">+</span>
+      <span>New Category</span>
+    </button>
+  </div>
+</div>
+
+<!-- ── Category detail (push nav from categories) ── -->
+<div id="view-category-detail" class="view">
+  <div class="card">
+    <div class="card-title">Rankings</div>
+    <div id="cat-detail-rankings"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Recent Matches</div>
+    <div id="cat-detail-matches"></div>
+  </div>
+</div>
+
+<!-- ── Record tab ── -->
+<div id="view-record" class="view">
+  <!-- Step 1: Category -->
+  <div id="record-step-1" class="record-step active card">
+    <div class="record-step-header">Step 1 of 3 — Choose Category</div>
+    <div class="form-group">
+      <label for="record-category">Category</label>
+      <select id="record-category" onchange="onCategorySelect()">
+        <option value="">Select a category…</option>
+      </select>
+    </div>
+    <div id="record-game-type-info" style="display:none; font-size:.85rem; color:var(--hub-text-muted,#6b7280); margin-bottom:16px;"></div>
+    <div class="step-actions">
+      <button class="btn-primary" onclick="recordNext(2)" disabled id="record-step1-next">Next →</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Teams -->
+  <div id="record-step-2" class="record-step card">
+    <div class="record-step-header">Step 2 of 3 — Pick Players</div>
+    <p id="record-team-hint" style="font-size:.85rem; color:var(--hub-text-muted,#6b7280); margin-bottom:14px;"></p>
+    <div class="member-chips" id="record-member-chips"></div>
+    <div class="team-builder" id="record-team-builder">
+      <div class="team-section">
+        <div class="team-section-label" style="color:#6366f1;">🔵 Team A</div>
+        <div class="team-slots" id="team-a-slots"><span style="font-size:.8rem; color:#9ca3af; align-self:center;">No players selected</span></div>
+      </div>
+      <div class="team-section" id="team-b-section">
+        <div class="team-section-label" style="color:#d97706;">🟡 Team B</div>
+        <div class="team-slots" id="team-b-slots"><span style="font-size:.8rem; color:#9ca3af; align-self:center;">No players selected</span></div>
+      </div>
+    </div>
+    <div class="step-actions">
+      <button class="btn-secondary" onclick="recordNext(1)">← Back</button>
+      <button class="btn-primary" onclick="recordNext(3)" disabled id="record-step2-next">Next →</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Result -->
+  <div id="record-step-3" class="record-step card">
+    <div class="record-step-header">Step 3 of 3 — Record Result</div>
+    <div class="form-group">
+      <label>Who won?</label>
+      <div class="result-options" id="result-options"></div>
+    </div>
+    <div class="form-group">
+      <label for="record-notes">Notes (optional)</label>
+      <textarea id="record-notes" placeholder="e.g. close game, overtime…"></textarea>
+    </div>
+    <div class="step-actions">
+      <button class="btn-secondary" onclick="recordNext(2)">← Back</button>
+      <button class="btn-primary" onclick="submitMatch()" disabled id="record-submit">Save Match</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── New Category modal ── -->
+<div class="modal-backdrop" id="modal-new-category">
+  <div class="modal">
+    <h2>New Category</h2>
+    <div class="form-group">
+      <label for="new-cat-name">Name</label>
+      <input type="text" id="new-cat-name" placeholder="e.g. Foosball, Mario Kart…" oninput="onNewCatInput()" />
+    </div>
+    <div class="form-group">
+      <label>Icon</label>
+      <div class="emoji-grid" id="emoji-grid"></div>
+    </div>
+    <div class="form-group">
+      <label for="new-cat-type">Game Type</label>
+      <select id="new-cat-type">
+        <option value="1v1">1 vs 1 — two individual players</option>
+        <option value="team">Teams — two teams of any size</option>
+        <option value="cooperative">Co-op — everyone on the same side</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeNewCategory()">Cancel</button>
+      <button class="btn-primary" id="create-cat-btn" onclick="createCategory()" disabled>Create</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { esc, memberColor, initial } from "/hub-sdk.js";
+import {
+  calcMatchDeltas, calcFfaDeltas, buildOverallRankings, categoryChampions,
+  rankLabel, formatRating, gameTypeLabel, DEFAULT_RATING
+} from "./logic.js";
+
+const CONTEXT = window.__CONTEXT_URL ?? "";
+const DB      = window.__DB_URL      ?? "";
+const ME      = window.__CURRENT_MEMBER ?? null;
+const APP_ID  = window.__APP_ID ?? "leaderboard";
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let members = [];
+let categories = [];
+let allRatings = [];
+let currentTab = "rankings";
+let currentCategoryId = null;
+
+// Record flow state
+let recordState = { categoryId: null, gameType: null, teamA: [], teamB: [], winningSide: null };
+
+// ── DB helper ──────────────────────────────────────────────────────────────────
+async function db(sql, params = []) {
+  if (!DB) return { rows: [] };
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sql, params }),
+  });
+  return res.json();
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+async function init() {
+  await loadMembers();
+  await processQuietTimeEvents();
+  await loadData();
+  renderRankings();
+}
+
+// ── Quiet Time event processing ───────────────────────────────────────────────
+const QUIET_TIME_CATEGORY = { name: "Quiet Time", icon: "🤫", gameType: "team" };
+
+async function processQuietTimeEvents() {
+  // Only fetch events newer than the most recent one we've already imported.
+  // Falls back to fetching all available events on first run.
+  const { rows: [lastRow] } = await db(
+    `SELECT MAX(played_at) as last_at FROM lb_matches WHERE source_event_id IS NOT NULL`
+  );
+  const since = lastRow?.last_at;
+
+  let events = [];
+  try {
+    const url = "/api/events?type=quiet-time.session-completed" +
+      (since ? `&since=${encodeURIComponent(since)}` : "");
+    const res = await fetch(url);
+    if (!res.ok) return;
+    events = await res.json();
+  } catch { return; }
+
+  if (!events.length) return;
+
+  let quietTimeCategoryId = null;
+
+  for (const event of events) {
+    // source_event_id on lb_matches is the correctness guard against duplicates
+    // (protects against the since cutoff being inclusive, or concurrent tabs)
+    const { rows: seen } = await db(
+      `SELECT 1 FROM lb_matches WHERE source_event_id = ?`, [event.id]
+    );
+    if (seen.length) continue;
+
+    const results = (event.payload?.results ?? []).filter(r => r.avgDb != null);
+    if (results.length < 2) continue;
+
+    // Lazy-create the Quiet Time category once per batch
+    if (!quietTimeCategoryId) {
+      quietTimeCategoryId = await ensureQuietTimeCategory();
+      if (!quietTimeCategoryId) continue;
+    }
+
+    const ranked = [...results].sort((a, b) => a.rank - b.rank);
+    const memberIds = ranked.map(r => r.memberId);
+    const placeholders = memberIds.map(() => "?").join(",");
+
+    const { rows: existingRatings } = await db(
+      `SELECT member_id, rating, games_played, wins, losses FROM lb_ratings
+       WHERE category_id = ? AND member_id IN (${placeholders})`,
+      [quietTimeCategoryId, ...memberIds]
+    );
+    const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
+    const getRating = (id) => ratingMap.get(id)?.rating ?? DEFAULT_RATING;
+
+    const rankedPlayers = ranked.map(r => ({ memberId: r.memberId, rating: getRating(r.memberId) }));
+    const deltas = calcFfaDeltas(rankedPlayers);
+
+    const matchId = crypto.randomUUID();
+    await db(
+      `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes, source_event_id)
+       VALUES (?, '', ?, ?, ?, ?)`,
+      [matchId, quietTimeCategoryId, event.created_at, "Via Quiet Time", event.id]
+    );
+
+    for (const d of deltas) {
+      const isWinner = d.memberId === rankedPlayers[0].memberId;
+      const result = isWinner ? "win" : "loss";
+      const newRating = Math.max(100, d.ratingBefore + d.delta);
+
+      await db(
+        `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
+         VALUES (?, '', ?, ?, ?, ?, ?, ?)`,
+        [crypto.randomUUID(), matchId, d.memberId, isWinner ? 0 : 1, result, d.ratingBefore, newRating]
+      );
+
+      const existing = ratingMap.get(d.memberId);
+      if (existing) {
+        await db(
+          `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1,
+           wins = wins + ?, losses = losses + ? WHERE member_id = ? AND category_id = ?`,
+          [newRating, isWinner ? 1 : 0, isWinner ? 0 : 1, d.memberId, quietTimeCategoryId]
+        );
+      } else {
+        await db(
+          `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
+           VALUES (?, '', ?, ?, ?, 1, ?, ?)`,
+          [crypto.randomUUID(), d.memberId, quietTimeCategoryId, newRating, isWinner ? 1 : 0, isWinner ? 0 : 1]
+        );
+      }
+    }
+  }
+}
+
+async function ensureQuietTimeCategory() {
+  const { rows } = await db(
+    `SELECT id FROM lb_categories WHERE name = ? AND icon = ?`,
+    [QUIET_TIME_CATEGORY.name, QUIET_TIME_CATEGORY.icon]
+  );
+  if (rows.length) return rows[0].id;
+
+  const id = crypto.randomUUID();
+  try {
+    await db(
+      `INSERT INTO lb_categories (id, household_id, name, icon, game_type, created_at, created_by)
+       VALUES (?, '', ?, ?, ?, ?, '')`,
+      [id, QUIET_TIME_CATEGORY.name, QUIET_TIME_CATEGORY.icon, QUIET_TIME_CATEGORY.gameType, new Date().toISOString()]
+    );
+    return id;
+  } catch { return null; }
+}
+
+async function loadMembers() {
+  if (!CONTEXT) {
+    members = [
+      { id: "demo-1", name: "Alex", role: "adult" },
+      { id: "demo-2", name: "Jordan", role: "child" },
+      { id: "demo-3", name: "Sam", role: "adult" },
+      { id: "demo-4", name: "Taylor", role: "child" },
+    ];
+    return;
+  }
+  try {
+    const res = await fetch(`${CONTEXT}?keys=family.members`);
+    members = ((await res.json())["family.members"]) ?? [];
+  } catch { members = []; }
+}
+
+async function loadData() {
+  const [catResult, ratingResult] = await Promise.all([
+    db(`SELECT c.*, (SELECT COUNT(*) FROM lb_matches m WHERE m.category_id = c.id) as match_count,
+        (SELECT MAX(played_at) FROM lb_matches WHERE category_id = c.id) as last_played
+        FROM lb_categories c ORDER BY last_played DESC`),
+    db(`SELECT * FROM lb_ratings`),
+  ]);
+  categories = catResult.rows;
+  allRatings = ratingResult.rows;
+}
+
+// ── Tab navigation ─────────────────────────────────────────────────────────────
+window.switchTab = function(tab) {
+  currentTab = tab;
+  document.querySelectorAll(".tab-nav button").forEach((btn, i) => {
+    btn.classList.toggle("active", ["rankings", "categories", "record"][i] === tab);
+  });
+  document.getElementById("view-rankings").classList.toggle("active", tab === "rankings");
+  document.getElementById("view-categories").classList.toggle("active", tab === "categories");
+  document.getElementById("view-category-detail").classList.remove("active");
+  document.getElementById("view-record").classList.toggle("active", tab === "record");
+  document.getElementById("tab-nav").style.display = "";
+  document.getElementById("back-btn").classList.remove("visible");
+  document.getElementById("app-title").textContent = "🏆 Leaderboard";
+
+  if (tab === "categories") renderCategories();
+  if (tab === "record") renderRecordStep1();
+};
+
+// ── Rankings view ──────────────────────────────────────────────────────────────
+function renderRankings() {
+  const ratingsByMember = new Map();
+  for (const r of allRatings) {
+    if (!ratingsByMember.has(r.member_id)) ratingsByMember.set(r.member_id, []);
+    ratingsByMember.get(r.member_id).push({ categoryId: r.category_id, rating: r.rating, gamesPlayed: r.games_played });
+  }
+
+  const ranked = buildOverallRankings(members, ratingsByMember).filter(r => r.totalGames > 0);
+
+  const list = document.getElementById("overall-list");
+  if (!ranked.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🏆</div><p>No matches recorded yet — record your first match to see rankings!</p></div>`;
+  } else {
+    list.innerHTML = ranked.map(({ member, composite, totalGames, categoryRatings }, i) => {
+      const color = memberColor(member.id, members);
+      const rating = composite != null ? formatRating(composite) : null;
+      const wins = allRatings.filter(r => r.member_id === member.id).reduce((s, r) => s + r.wins, 0);
+      const losses = allRatings.filter(r => r.member_id === member.id).reduce((s, r) => s + r.losses, 0);
+      return `
+        <div class="lb-row">
+          <div class="lb-rank">${rankLabel(i)}</div>
+          <span class="member-avatar" style="background:${color}">${esc(initial(member.name))}</span>
+          <div style="flex:1; min-width:0;">
+            <div class="lb-name">${esc(member.name)}</div>
+            <div class="lb-record">W${wins} L${losses} · ${totalGames} game${totalGames === 1 ? "" : "s"}</div>
+          </div>
+          ${rating
+            ? `<div class="lb-rating">${rating}</div>`
+            : `<div class="lb-no-rating">${totalGames} game${totalGames === 1 ? "" : "s"}</div>`
+          }
+        </div>
+      `;
+    }).join("");
+  }
+
+  // Category champions
+  const champMap = categoryChampions(allRatings);
+  const champCard = document.getElementById("champions-card");
+  if (!champMap.size || !categories.length) { champCard.style.display = "none"; return; }
+
+  champCard.style.display = "";
+  document.getElementById("champions-grid").innerHTML = categories
+    .filter(c => champMap.has(c.id))
+    .map(c => {
+      const champ = champMap.get(c.id);
+      const member = members.find(m => m.id === champ.memberId);
+      return `
+        <div class="champion-chip" onclick="openCategoryDetail('${esc(c.id)}')">
+          <span class="champion-icon">${esc(c.icon)}</span>
+          <div class="champion-info">
+            <div class="champion-cat">${esc(c.name)}</div>
+            <div class="champion-name">${member ? esc(member.name) : "Unknown"}</div>
+          </div>
+        </div>
+      `;
+    }).join("");
+}
+
+// ── Categories view ────────────────────────────────────────────────────────────
+function renderCategories() {
+  const grid = document.getElementById("categories-grid");
+  grid.innerHTML = `
+    ${categories.map(c => `
+      <div class="category-card" onclick="openCategoryDetail('${esc(c.id)}')">
+        <div class="category-card-icon">${esc(c.icon)}</div>
+        <div class="category-card-name">${esc(c.name)}</div>
+        <div class="category-card-meta">${gameTypeLabel(c.game_type)} · ${c.match_count ?? 0} match${(c.match_count ?? 0) === 1 ? "" : "es"}</div>
+      </div>
+    `).join("")}
+    <button class="add-category-card" onclick="openNewCategory()">
+      <span class="plus">+</span>
+      <span>New Category</span>
+    </button>
+  `;
+}
+
+// ── Category detail ────────────────────────────────────────────────────────────
+window.openCategoryDetail = async function(categoryId) {
+  currentCategoryId = categoryId;
+  const cat = categories.find(c => c.id === categoryId);
+  if (!cat) return;
+
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("view-category-detail").classList.add("active");
+  document.getElementById("tab-nav").style.display = "none";
+  document.getElementById("back-btn").classList.add("visible");
+  document.getElementById("back-label").textContent = currentTab === "categories" ? "Categories" : "Rankings";
+  document.getElementById("app-title").textContent = `${cat.icon} ${cat.name}`;
+
+  const [{ rows: catRatings }, { rows: matches }] = await Promise.all([
+    db(`SELECT * FROM lb_ratings WHERE category_id = ? ORDER BY rating DESC`, [categoryId]),
+    db(`SELECT * FROM lb_matches WHERE category_id = ? ORDER BY played_at DESC LIMIT 20`, [categoryId]),
+  ]);
+
+  // Rankings
+  const rankingsEl = document.getElementById("cat-detail-rankings");
+  if (!catRatings.length) {
+    rankingsEl.innerHTML = `<div class="empty-state"><div class="empty-icon">${esc(cat.icon)}</div><p>No matches yet</p></div>`;
+  } else {
+    rankingsEl.innerHTML = catRatings.map((r, i) => {
+      const member = members.find(m => m.id === r.member_id);
+      const color = member ? memberColor(r.member_id, members) : "#9ca3af";
+      return `
+        <div class="lb-row">
+          <div class="lb-rank">${rankLabel(i)}</div>
+          <span class="member-avatar" style="background:${color}">${member ? esc(initial(member.name)) : "?"}</span>
+          <div style="flex:1; min-width:0;">
+            <div class="lb-name">${member ? esc(member.name) : "Unknown"}</div>
+            <div class="lb-record">W${r.wins} L${r.losses}</div>
+          </div>
+          <div class="lb-rating">${formatRating(r.rating)}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  // Recent matches
+  const matchesEl = document.getElementById("cat-detail-matches");
+  if (!matches.length) {
+    matchesEl.innerHTML = `<p style="font-size:.9rem; color:var(--hub-text-muted,#6b7280); padding:12px 0;">No matches yet</p>`;
+  } else {
+    const matchIds = matches.map(m => `'${m.id}'`).join(",");
+    const { rows: participants } = await db(
+      `SELECT * FROM lb_participants WHERE match_id IN (${matchIds})`
+    );
+    matchesEl.innerHTML = matches.map(match => {
+      const ps = participants.filter(p => p.match_id === match.id);
+      const teamA = ps.filter(p => p.team === 0);
+      const teamB = ps.filter(p => p.team === 1);
+      const date = new Date(match.played_at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      const winner = ps.find(p => p.result === "win")?.team;
+
+      const renderTeam = (team, side) => {
+        if (!team.length) return "";
+        const isWinner = team[0].result === "win" || team[0].result === "draw";
+        return `<span class="match-team${isWinner ? " winner" : ""}">
+          ${team.map(p => {
+            const m = members.find(mm => mm.id === p.member_id);
+            const color = m ? memberColor(p.member_id, members) : "#9ca3af";
+            const delta = p.rating_after - p.rating_before;
+            const sign = delta >= 0 ? "+" : "";
+            return `<span class="member-avatar sm" style="background:${color}" title="${m ? esc(m.name) : "?"}">${m ? esc(initial(m.name)) : "?"}</span>
+                    <span>${m ? esc(m.name) : "?"}</span>
+                    <span class="match-delta ${delta >= 0 ? "pos" : "neg"}">${sign}${delta}</span>`;
+          }).join(", ")}
+        </span>`;
+      };
+
+      return `
+        <div class="match-row">
+          <div class="match-teams">
+            ${renderTeam(teamA, 0)}
+            ${teamB.length ? `<span class="match-vs">vs</span>${renderTeam(teamB, 1)}` : ""}
+          </div>
+          <div class="match-result">
+            <span>${date}</span>
+            ${match.notes ? `<span>· ${esc(match.notes)}</span>` : ""}
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+};
+
+window.goBack = function() {
+  switchTab(currentTab);
+};
+
+// ── Record match flow ──────────────────────────────────────────────────────────
+function renderRecordStep1() {
+  recordState = { categoryId: null, gameType: null, teamA: [], teamB: [], winningSide: null };
+  const sel = document.getElementById("record-category");
+  sel.innerHTML = `<option value="">Select a category…</option>` +
+    categories.map(c => `<option value="${esc(c.id)}">${esc(c.icon)} ${esc(c.name)}</option>`).join("");
+  document.getElementById("record-step1-next").disabled = true;
+  document.getElementById("record-game-type-info").style.display = "none";
+  document.getElementById("record-notes").value = "";
+  recordState.winningSide = null;
+  showRecordStep(1);
+}
+
+window.onCategorySelect = function() {
+  const categoryId = document.getElementById("record-category").value;
+  const cat = categories.find(c => c.id === categoryId);
+  recordState.categoryId = categoryId || null;
+  recordState.gameType = cat?.game_type ?? null;
+  document.getElementById("record-step1-next").disabled = !categoryId;
+  const info = document.getElementById("record-game-type-info");
+  if (cat) {
+    info.style.display = "";
+    info.textContent = `Game type: ${gameTypeLabel(cat.game_type)}`;
+  } else {
+    info.style.display = "none";
+  }
+};
+
+window.recordNext = function(step) { showRecordStep(step); };
+
+function showRecordStep(step) {
+  document.querySelectorAll(".record-step").forEach(el => el.classList.remove("active"));
+  document.getElementById(`record-step-${step}`).classList.add("active");
+  if (step === 2) renderTeamBuilder();
+  if (step === 3) renderResultOptions();
+}
+
+function renderTeamBuilder() {
+  const { gameType } = recordState;
+  const isCooperative = gameType === "cooperative";
+  recordState.teamA = [];
+  recordState.teamB = [];
+
+  document.getElementById("team-b-section").style.display = isCooperative ? "none" : "";
+  document.getElementById("record-team-hint").textContent = isCooperative
+    ? "Select all participating players."
+    : "Click each player to assign them to Team A (blue) or Team B (gold).";
+
+  const chips = document.getElementById("record-member-chips");
+  chips.innerHTML = members.map(m => {
+    const color = memberColor(m.id, members);
+    return `
+      <div class="member-chip" id="chip-${esc(m.id)}" onclick="toggleMemberTeam('${esc(m.id)}')">
+        <span class="member-avatar sm" style="background:${color}">${esc(initial(m.name))}</span>
+        <span>${esc(m.name)}</span>
+        <span class="chip-label" id="chip-label-${esc(m.id)}"></span>
+      </div>
+    `;
+  }).join("");
+
+  renderTeamSlots();
+  updateStep2Next();
+}
+
+window.toggleMemberTeam = function(memberId) {
+  const { gameType, teamA, teamB } = recordState;
+  const isCooperative = gameType === "cooperative";
+
+  if (isCooperative) {
+    const idx = teamA.indexOf(memberId);
+    if (idx >= 0) teamA.splice(idx, 1);
+    else teamA.push(memberId);
+  } else {
+    const inA = teamA.indexOf(memberId);
+    const inB = teamB.indexOf(memberId);
+    if (inA >= 0) {
+      // A → B
+      teamA.splice(inA, 1);
+      teamB.push(memberId);
+    } else if (inB >= 0) {
+      // B → unselected
+      teamB.splice(inB, 1);
+    } else {
+      // unselected → A
+      teamA.push(memberId);
+    }
+  }
+
+  renderTeamSlots();
+  updateStep2Next();
+};
+
+function renderTeamSlots() {
+  const { teamA, teamB, gameType } = recordState;
+  const isCooperative = gameType === "cooperative";
+
+  // Update chips
+  members.forEach(m => {
+    const chip = document.getElementById(`chip-${m.id}`);
+    const label = document.getElementById(`chip-label-${m.id}`);
+    if (!chip) return;
+    const inA = teamA.includes(m.id);
+    const inB = teamB.includes(m.id);
+    chip.classList.toggle("team-a", inA);
+    chip.classList.toggle("team-b", inB);
+    label.textContent = inA ? (isCooperative ? "✓" : "A") : inB ? "B" : "";
+  });
+
+  // Update slot displays
+  const slotA = document.getElementById("team-a-slots");
+  slotA.innerHTML = teamA.length
+    ? teamA.map(id => { const m = members.find(mm => mm.id === id); return m ? `<span style="font-size:.85rem; font-weight:600;">${esc(m.name)}</span>` : ""; }).join(" ")
+    : `<span style="font-size:.8rem; color:#9ca3af; align-self:center;">No players selected</span>`;
+
+  if (!isCooperative) {
+    const slotB = document.getElementById("team-b-slots");
+    slotB.innerHTML = teamB.length
+      ? teamB.map(id => { const m = members.find(mm => mm.id === id); return m ? `<span style="font-size:.85rem; font-weight:600;">${esc(m.name)}</span>` : ""; }).join(" ")
+      : `<span style="font-size:.8rem; color:#9ca3af; align-self:center;">No players selected</span>`;
+  }
+}
+
+function updateStep2Next() {
+  const { teamA, teamB, gameType } = recordState;
+  const isCooperative = gameType === "cooperative";
+  const valid = isCooperative ? teamA.length >= 1 : (teamA.length >= 1 && teamB.length >= 1);
+  document.getElementById("record-step2-next").disabled = !valid;
+}
+
+function renderResultOptions() {
+  const { gameType, teamA, teamB } = recordState;
+  const isCooperative = gameType === "cooperative";
+  recordState.winningSide = null;
+  document.getElementById("record-submit").disabled = true;
+
+  const teamANames = teamA.map(id => members.find(m => m.id === id)?.name ?? "?").join(" & ");
+  const teamBNames = teamB.map(id => members.find(m => m.id === id)?.name ?? "?").join(" & ");
+
+  let html = "";
+  if (isCooperative) {
+    html = `
+      <button class="result-btn" onclick="selectResult('A')">✅ Won</button>
+      <button class="result-btn" onclick="selectResult('B')">❌ Lost</button>
+    `;
+  } else {
+    html = `
+      <button class="result-btn team-a-win" onclick="selectResult('A')">🔵 ${esc(teamANames)} won</button>
+      <button class="result-btn team-b-win" onclick="selectResult('B')">🟡 ${esc(teamBNames)} won</button>
+      <button class="result-btn draw-win" onclick="selectResult('draw')">🤝 Draw</button>
+    `;
+  }
+  document.getElementById("result-options").innerHTML = html;
+}
+
+window.selectResult = function(side) {
+  recordState.winningSide = side;
+  document.querySelectorAll(".result-btn").forEach(btn => btn.classList.remove("selected"));
+  const idx = ["A", "B", "draw"].indexOf(side);
+  document.querySelectorAll(".result-btn")[idx]?.classList.add("selected");
+  document.getElementById("record-submit").disabled = false;
+};
+
+// ── Submit match ───────────────────────────────────────────────────────────────
+window.submitMatch = async function() {
+  const btn = document.getElementById("record-submit");
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+
+  try {
+    const { categoryId, gameType, teamA, teamB, winningSide } = recordState;
+    const isCooperative = gameType === "cooperative";
+    const notes = document.getElementById("record-notes").value.trim();
+
+    // Load current ratings for all participants
+    const allIds = [...new Set([...teamA, ...teamB])];
+    const placeholders = allIds.map(() => "?").join(",");
+    const { rows: existingRatings } = await db(
+      `SELECT member_id, rating, games_played, wins, losses FROM lb_ratings
+       WHERE category_id = ? AND member_id IN (${placeholders})`,
+      [categoryId, ...allIds]
+    );
+    const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
+
+    const getRating = (id) => ratingMap.get(id)?.rating ?? DEFAULT_RATING;
+
+    const teamAData = teamA.map(id => ({ memberId: id, rating: getRating(id) }));
+    const teamBData = isCooperative ? [] : teamB.map(id => ({ memberId: id, rating: getRating(id) }));
+
+    const deltas = calcMatchDeltas(teamAData, teamBData, winningSide, isCooperative);
+
+    // Insert match
+    const matchId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await db(
+      `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes) VALUES (?, '', ?, ?, ?)`,
+      [matchId, categoryId, now, notes || null]
+    );
+
+    // Insert participants and update ratings
+    for (const d of deltas) {
+      const isA = teamA.includes(d.memberId);
+      const team = isA ? 0 : 1;
+
+      let result;
+      if (isCooperative) result = winningSide === "A" ? "win" : "loss";
+      else result = winningSide === "draw" ? "draw" : (isA === (winningSide === "A")) ? "win" : "loss";
+
+      const newRating = Math.max(100, d.ratingBefore + d.delta);
+      const partId = crypto.randomUUID();
+
+      await db(
+        `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
+         VALUES (?, '', ?, ?, ?, ?, ?, ?)`,
+        [partId, matchId, d.memberId, team, result, d.ratingBefore, newRating]
+      );
+
+      const existing = ratingMap.get(d.memberId);
+      const isWin = result === "win" ? 1 : 0;
+      const isLoss = result === "loss" ? 1 : 0;
+
+      if (existing) {
+        await db(
+          `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1, wins = wins + ?, losses = losses + ?
+           WHERE member_id = ? AND category_id = ?`,
+          [newRating, isWin, isLoss, d.memberId, categoryId]
+        );
+      } else {
+        await db(
+          `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
+           VALUES (?, '', ?, ?, ?, 1, ?, ?)`,
+          [crypto.randomUUID(), d.memberId, categoryId, newRating, isWin, isLoss]
+        );
+      }
+    }
+
+    // Refresh data and go to rankings
+    await loadData();
+    renderRankings();
+    showToast("Match recorded! 🏆");
+    switchTab("rankings");
+  } catch (e) {
+    console.error(e);
+    btn.disabled = false;
+    btn.textContent = "Save Match";
+  }
+};
+
+// ── New category modal ─────────────────────────────────────────────────────────
+const ICONS = ["🏆","⚽","🏀","🎮","🎯","♟️","🎾","🏓","🎲","🃏","🤺","🏋️","🎸","🎵","🧩","🍕","🍳","🎨","🔢","🚀","🌟","🦁","🐉","🎭","🏊","🤸","⛷️","🏄","🏇","🎳","🎻","📸"];
+const selectedIcon = { value: ICONS[0] };
+
+window.openNewCategory = function() {
+  document.getElementById("new-cat-name").value = "";
+  selectedIcon.value = ICONS[0];
+  document.getElementById("create-cat-btn").disabled = true;
+  document.getElementById("emoji-grid").innerHTML = ICONS.map(e => `
+    <button class="emoji-btn${e === selectedIcon.value ? " selected" : ""}" onclick="selectIcon('${e}')">${e}</button>
+  `).join("");
+  document.getElementById("modal-new-category").classList.add("open");
+  setTimeout(() => document.getElementById("new-cat-name").focus(), 50);
+};
+
+window.closeNewCategory = function() {
+  document.getElementById("modal-new-category").classList.remove("open");
+};
+
+window.selectIcon = function(emoji) {
+  selectedIcon.value = emoji;
+  document.querySelectorAll(".emoji-btn").forEach(btn => {
+    btn.classList.toggle("selected", btn.textContent === emoji);
+  });
+};
+
+window.onNewCatInput = function() {
+  document.getElementById("create-cat-btn").disabled = !document.getElementById("new-cat-name").value.trim();
+};
+
+window.createCategory = async function() {
+  const name = document.getElementById("new-cat-name").value.trim();
+  const icon = selectedIcon.value;
+  const gameType = document.getElementById("new-cat-type").value;
+  if (!name) return;
+
+  const btn = document.getElementById("create-cat-btn");
+  btn.disabled = true;
+  btn.textContent = "Creating…";
+
+  try {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await db(
+      `INSERT INTO lb_categories (id, household_id, name, icon, game_type, created_at, created_by)
+       VALUES (?, '', ?, ?, ?, ?, ?)`,
+      [id, name, icon, gameType, now, ME?.id ?? ""]
+    );
+    await loadData();
+    closeNewCategory();
+    renderCategories();
+    showToast(`"${name}" created!`);
+  } catch (e) {
+    console.error(e);
+    btn.disabled = false;
+    btn.textContent = "Create";
+  }
+};
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("visible");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("visible"), 2500);
+}
+
+// ── Expose switchTab for inline onclick on modal close ────────────────────────
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeNewCategory();
+});
+document.getElementById("modal-new-category").addEventListener("click", e => {
+  if (e.target === e.currentTarget) closeNewCategory();
+});
+
+init();
+</script>
+</body>
+</html>
