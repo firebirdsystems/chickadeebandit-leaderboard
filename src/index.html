@@ -581,9 +581,9 @@ async function processQuietTimeEvents() {
     const memberIds = ranked.map(r => r.memberId);
     const placeholders = memberIds.map(() => "?").join(",");
 
+    const placeholders = memberIds.map(() => "?").join(",");
     const { rows: existingRatings } = await db(
-      `SELECT member_id, rating, games_played, wins, losses FROM lb_ratings
-       WHERE category_id = ? AND member_id IN (${placeholders})`,
+      `SELECT * FROM lb_ratings WHERE category_id = ? AND member_id IN (${placeholders})`,
       [quietTimeCategoryId, ...memberIds]
     );
     const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
@@ -614,8 +614,8 @@ async function processQuietTimeEvents() {
       if (existing) {
         await db(
           `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1,
-           wins = wins + ?, losses = losses + ? WHERE member_id = ? AND category_id = ?`,
-          [newRating, isWinner ? 1 : 0, isWinner ? 0 : 1, d.memberId, quietTimeCategoryId]
+           wins = wins + ?, losses = losses + ? WHERE id = ?`,
+          [newRating, isWinner ? 1 : 0, isWinner ? 0 : 1, existing.id]
         );
       } else {
         await db(
@@ -1037,8 +1037,7 @@ window.submitMatch = async function() {
     const allIds = [...new Set([...teamA, ...teamB])];
     const placeholders = allIds.map(() => "?").join(",");
     const { rows: existingRatings } = await db(
-      `SELECT member_id, rating, games_played, wins, losses FROM lb_ratings
-       WHERE category_id = ? AND member_id IN (${placeholders})`,
+      `SELECT * FROM lb_ratings WHERE category_id = ? AND member_id IN (${placeholders})`,
       [categoryId, ...allIds]
     );
     const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
@@ -1083,8 +1082,8 @@ window.submitMatch = async function() {
       if (existing) {
         await db(
           `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1, wins = wins + ?, losses = losses + ?
-           WHERE member_id = ? AND category_id = ?`,
-          [newRating, isWin, isLoss, d.memberId, categoryId]
+           WHERE id = ?`,
+          [newRating, isWin, isLoss, existing.id]
         );
       } else {
         await db(
@@ -1184,7 +1183,13 @@ document.getElementById("modal-new-category").addEventListener("click", e => {
   if (e.target === e.currentTarget) closeNewCategory();
 });
 
-init();
+function handleDeepLink() {
+  const categoryId = new URLSearchParams(window.location.search).get("categoryId");
+  if (!categoryId) return;
+  openCategoryDetail(categoryId);
+}
+
+init().then(handleDeepLink);
 </script>
 </body>
 </html>
