@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS lb_categories (
   id           TEXT PRIMARY KEY,
-  household_id TEXT NOT NULL,
+  household_id UUID NOT NULL DEFAULT current_setting('app.household_id', true)::uuid,
   name         TEXT NOT NULL,
   icon         TEXT NOT NULL DEFAULT '🏆',
   game_type    TEXT NOT NULL DEFAULT '1v1',
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS lb_categories (
 
 CREATE TABLE IF NOT EXISTS lb_matches (
   id           TEXT PRIMARY KEY,
-  household_id TEXT NOT NULL,
+  household_id UUID NOT NULL DEFAULT current_setting('app.household_id', true)::uuid,
   category_id  TEXT NOT NULL,
   played_at    TEXT NOT NULL,
   notes        TEXT
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS lb_participants (
 
 CREATE TABLE IF NOT EXISTS lb_ratings (
   id           TEXT PRIMARY KEY,
-  household_id TEXT NOT NULL,
+  household_id UUID NOT NULL DEFAULT current_setting('app.household_id', true)::uuid,
   member_id    TEXT NOT NULL,
   category_id  TEXT NOT NULL,
   rating       REAL NOT NULL DEFAULT 1000,
