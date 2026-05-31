@@ -531,7 +531,7 @@ async function db(sql, params = []) {
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
   await loadMembers();
-  await processQuietTimeEvents();
+  await Promise.all([processQuietTimeEvents(), processSeaBattleEvents()]);
   await loadData();
   renderRankings();
 }
@@ -626,6 +626,106 @@ async function processQuietTimeEvents() {
       }
     }
   }
+}
+
+// ── Sea Battle event processing ───────────────────────────────────────────────
+const SEA_BATTLE_CATEGORY = { name: "Sea Battle", icon: "⚓", gameType: "1v1" };
+
+async function processSeaBattleEvents() {
+  const { rows: [lastRow] } = await db(
+    `SELECT MAX(played_at) as last_at FROM lb_matches WHERE notes = 'Via Sea Battle'`
+  );
+  const since = lastRow?.last_at;
+
+  let events = [];
+  try {
+    const url = "/api/events?type=sea-battle.game-completed" +
+      (since ? `&since=${encodeURIComponent(since)}` : "");
+    const res = await fetch(url);
+    if (!res.ok) return;
+    events = await res.json();
+  } catch { return; }
+
+  if (!events.length) return;
+
+  let categoryId = null;
+
+  for (const event of events) {
+    const { rows: seen } = await db(
+      `SELECT 1 FROM lb_matches WHERE source_event_id = ?`, [event.id]
+    );
+    if (seen.length) continue;
+
+    const { winnerId, loserId } = event.payload ?? {};
+    if (!winnerId || !loserId) continue;
+
+    if (!categoryId) {
+      categoryId = await ensureSeaBattleCategory();
+      if (!categoryId) continue;
+    }
+
+    const { rows: existingRatings } = await db(
+      `SELECT * FROM lb_ratings WHERE category_id = ? AND member_id IN (?, ?)`,
+      [categoryId, winnerId, loserId]
+    );
+    const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
+    const getRating = (id) => ratingMap.get(id)?.rating ?? DEFAULT_RATING;
+
+    const teamA = [{ memberId: winnerId, rating: getRating(winnerId) }];
+    const teamB = [{ memberId: loserId,  rating: getRating(loserId)  }];
+    const deltas = calcMatchDeltas(teamA, teamB, "A");
+
+    const matchId = crypto.randomUUID();
+    await db(
+      `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes, source_event_id)
+       VALUES (?, '', ?, ?, 'Via Sea Battle', ?)`,
+      [matchId, categoryId, event.created_at, event.id]
+    );
+
+    for (const d of deltas) {
+      const isWinner  = d.memberId === winnerId;
+      const result    = isWinner ? "win" : "loss";
+      const newRating = Math.max(100, d.ratingBefore + d.delta);
+
+      await db(
+        `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
+         VALUES (?, '', ?, ?, ?, ?, ?, ?)`,
+        [crypto.randomUUID(), matchId, d.memberId, isWinner ? 0 : 1, result, d.ratingBefore, newRating]
+      );
+
+      const existing = ratingMap.get(d.memberId);
+      if (existing) {
+        await db(
+          `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1,
+           wins = wins + ?, losses = losses + ? WHERE id = ?`,
+          [newRating, isWinner ? 1 : 0, isWinner ? 0 : 1, existing.id]
+        );
+      } else {
+        await db(
+          `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
+           VALUES (?, '', ?, ?, ?, 1, ?, ?)`,
+          [crypto.randomUUID(), d.memberId, categoryId, newRating, isWinner ? 1 : 0, isWinner ? 0 : 1]
+        );
+      }
+    }
+  }
+}
+
+async function ensureSeaBattleCategory() {
+  const { rows } = await db(
+    `SELECT id FROM lb_categories WHERE name = ? AND icon = ?`,
+    [SEA_BATTLE_CATEGORY.name, SEA_BATTLE_CATEGORY.icon]
+  );
+  if (rows.length) return rows[0].id;
+  const id = crypto.randomUUID();
+  try {
+    await db(
+      `INSERT INTO lb_categories (id, household_id, name, icon, game_type, created_at, created_by)
+       VALUES (?, '', ?, ?, ?, ?, '')`,
+      [id, SEA_BATTLE_CATEGORY.name, SEA_BATTLE_CATEGORY.icon, SEA_BATTLE_CATEGORY.gameType, new Date().toISOString()]
+    );
+    return id;
+  } catch { return null; }
 }
 
 async function ensureQuietTimeCategory() {
