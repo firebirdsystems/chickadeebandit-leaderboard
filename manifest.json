@@ -19,5 +19,10 @@
   "icon": "🏆",
   "nav": { "label": "Leaderboard" },
   "widget": { "label": "Rankings", "size": "medium" },
-  "subscribes_to": ["quiet-time.session-completed"]
+  "subscribes_to": ["quiet-time.session-completed"],
+  "ai_access": {
+    "allowed": true,
+    "mode": "read",
+    "db_exports": ["current_standings", "recent_matches"]
+  }
 }
