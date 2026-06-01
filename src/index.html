@@ -580,8 +580,6 @@ async function processQuietTimeEvents() {
     const ranked = [...results].sort((a, b) => a.rank - b.rank);
     const memberIds = ranked.map(r => r.memberId);
     const placeholders = memberIds.map(() => "?").join(",");
-
-    const placeholders = memberIds.map(() => "?").join(",");
     const { rows: existingRatings } = await db(
       `SELECT * FROM lb_ratings WHERE category_id = ? AND member_id IN (${placeholders})`,
       [quietTimeCategoryId, ...memberIds]
