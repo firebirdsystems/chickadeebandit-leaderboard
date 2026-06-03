@@ -595,7 +595,7 @@ async function processQuietTimeEvents() {
     const matchId = crypto.randomUUID();
     await db(
       `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes, source_event_id)
-       VALUES (?, '', ?, ?, ?, ?)`,
+       VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?)`,
       [matchId, quietTimeCategoryId, event.created_at, "Via Quiet Time", event.id]
     );
 
@@ -606,7 +606,7 @@ async function processQuietTimeEvents() {
 
       await db(
         `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
-         VALUES (?, '', ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, ?, ?)`,
         [crypto.randomUUID(), matchId, d.memberId, isWinner ? 0 : 1, result, d.ratingBefore, newRating]
       );
 
@@ -620,7 +620,7 @@ async function processQuietTimeEvents() {
       } else {
         await db(
           `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
-           VALUES (?, '', ?, ?, ?, 1, ?, ?)`,
+           VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, 1, ?, ?)`,
           [crypto.randomUUID(), d.memberId, quietTimeCategoryId, newRating, isWinner ? 1 : 0, isWinner ? 0 : 1]
         );
       }
@@ -678,7 +678,7 @@ async function processSeaBattleEvents() {
     const matchId = crypto.randomUUID();
     await db(
       `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes, source_event_id)
-       VALUES (?, '', ?, ?, 'Via Sea Battle', ?)`,
+       VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, 'Via Sea Battle', ?)`,
       [matchId, categoryId, event.created_at, event.id]
     );
 
@@ -689,7 +689,7 @@ async function processSeaBattleEvents() {
 
       await db(
         `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
-         VALUES (?, '', ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, ?, ?)`,
         [crypto.randomUUID(), matchId, d.memberId, isWinner ? 0 : 1, result, d.ratingBefore, newRating]
       );
 
@@ -703,7 +703,7 @@ async function processSeaBattleEvents() {
       } else {
         await db(
           `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
-           VALUES (?, '', ?, ?, ?, 1, ?, ?)`,
+           VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, 1, ?, ?)`,
           [crypto.randomUUID(), d.memberId, categoryId, newRating, isWinner ? 1 : 0, isWinner ? 0 : 1]
         );
       }
@@ -721,7 +721,7 @@ async function ensureSeaBattleCategory() {
   try {
     await db(
       `INSERT INTO lb_categories (id, household_id, name, icon, game_type, created_at, created_by)
-       VALUES (?, '', ?, ?, ?, ?, '')`,
+       VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, '')`,
       [id, SEA_BATTLE_CATEGORY.name, SEA_BATTLE_CATEGORY.icon, SEA_BATTLE_CATEGORY.gameType, new Date().toISOString()]
     );
     return id;
@@ -739,7 +739,7 @@ async function ensureQuietTimeCategory() {
   try {
     await db(
       `INSERT INTO lb_categories (id, household_id, name, icon, game_type, created_at, created_by)
-       VALUES (?, '', ?, ?, ?, ?, '')`,
+       VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, '')`,
       [id, QUIET_TIME_CATEGORY.name, QUIET_TIME_CATEGORY.icon, QUIET_TIME_CATEGORY.gameType, new Date().toISOString()]
     );
     return id;
@@ -1150,7 +1150,7 @@ window.submitMatch = async function() {
     const matchId = crypto.randomUUID();
     const now = new Date().toISOString();
     await db(
-      `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes) VALUES (?, '', ?, ?, ?)`,
+      `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes) VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?)`,
       [matchId, categoryId, now, notes || null]
     );
 
@@ -1171,7 +1171,7 @@ window.submitMatch = async function() {
       await Promise.all([
         db(
           `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
-           VALUES (?, '', ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, ?, ?)`,
           [crypto.randomUUID(), matchId, d.memberId, team, result, d.ratingBefore, newRating]
         ),
         existing
@@ -1182,7 +1182,7 @@ window.submitMatch = async function() {
             )
           : db(
               `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
-               VALUES (?, '', ?, ?, ?, 1, ?, ?)`,
+               VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, 1, ?, ?)`,
               [crypto.randomUUID(), d.memberId, categoryId, newRating, isWin, isLoss]
             ),
       ]);
@@ -1245,7 +1245,7 @@ window.createCategory = async function() {
     const now = new Date().toISOString();
     await db(
       `INSERT INTO lb_categories (id, household_id, name, icon, game_type, created_at, created_by)
-       VALUES (?, '', ?, ?, ?, ?, ?)`,
+       VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, ?)`,
       [id, name, icon, gameType, now, ME?.id ?? ""]
     );
     categories.push({ id, name, icon, game_type: gameType, match_count: 0, last_played: null, created_at: now });
