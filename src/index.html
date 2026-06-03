@@ -530,10 +530,12 @@ async function db(sql, params = []) {
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
-  await loadMembers();
-  await Promise.all([processQuietTimeEvents(), processSeaBattleEvents()]);
-  await loadData();
+  await Promise.all([loadMembers(), loadData()]);
   renderRankings();
+  // Process external events in the background; refresh rankings when done
+  Promise.all([processQuietTimeEvents(), processSeaBattleEvents()])
+    .then(() => loadData().then(renderRankings))
+    .catch(console.error);
 }
 
 // ── Quiet Time event processing ───────────────────────────────────────────────
@@ -879,9 +881,10 @@ window.openCategoryDetail = async function(categoryId) {
   document.getElementById("back-label").textContent = currentTab === "categories" ? "Categories" : "Rankings";
   document.getElementById("app-title").textContent = `${cat.icon} ${cat.name}`;
 
-  const [{ rows: catRatings }, { rows: matches }] = await Promise.all([
+  const [{ rows: catRatings }, { rows: matches }, { rows: participants }] = await Promise.all([
     db(`SELECT * FROM lb_ratings WHERE category_id = ? ORDER BY rating DESC`, [categoryId]),
     db(`SELECT * FROM lb_matches WHERE category_id = ? ORDER BY played_at DESC LIMIT 20`, [categoryId]),
+    db(`SELECT p.* FROM lb_participants p WHERE p.match_id IN (SELECT id FROM lb_matches WHERE category_id = ? ORDER BY played_at DESC LIMIT 20)`, [categoryId]),
   ]);
 
   // Rankings
@@ -911,10 +914,6 @@ window.openCategoryDetail = async function(categoryId) {
   if (!matches.length) {
     matchesEl.innerHTML = `<p style="font-size:.9rem; color:var(--hub-text-muted,#6b7280); padding:12px 0;">No matches yet</p>`;
   } else {
-    const matchIds = matches.map(m => `'${m.id}'`).join(",");
-    const { rows: participants } = await db(
-      `SELECT * FROM lb_participants WHERE match_id IN (${matchIds})`
-    );
     matchesEl.innerHTML = matches.map(match => {
       const ps = participants.filter(p => p.match_id === match.id);
       const teamA = ps.filter(p => p.team === 0);
@@ -1155,8 +1154,8 @@ window.submitMatch = async function() {
       [matchId, categoryId, now, notes || null]
     );
 
-    // Insert participants and update ratings
-    for (const d of deltas) {
+    // Insert participants and update ratings — all players in parallel
+    await Promise.all(deltas.map(async (d) => {
       const isA = teamA.includes(d.memberId);
       const team = isA ? 0 : 1;
 
@@ -1165,32 +1164,29 @@ window.submitMatch = async function() {
       else result = winningSide === "draw" ? "draw" : (isA === (winningSide === "A")) ? "win" : "loss";
 
       const newRating = Math.max(100, d.ratingBefore + d.delta);
-      const partId = crypto.randomUUID();
-
-      await db(
-        `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
-         VALUES (?, '', ?, ?, ?, ?, ?, ?)`,
-        [partId, matchId, d.memberId, team, result, d.ratingBefore, newRating]
-      );
-
       const existing = ratingMap.get(d.memberId);
       const isWin = result === "win" ? 1 : 0;
       const isLoss = result === "loss" ? 1 : 0;
 
-      if (existing) {
-        await db(
-          `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1, wins = wins + ?, losses = losses + ?
-           WHERE id = ?`,
-          [newRating, isWin, isLoss, existing.id]
-        );
-      } else {
-        await db(
-          `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
-           VALUES (?, '', ?, ?, ?, 1, ?, ?)`,
-          [crypto.randomUUID(), d.memberId, categoryId, newRating, isWin, isLoss]
-        );
-      }
-    }
+      await Promise.all([
+        db(
+          `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
+           VALUES (?, '', ?, ?, ?, ?, ?, ?)`,
+          [crypto.randomUUID(), matchId, d.memberId, team, result, d.ratingBefore, newRating]
+        ),
+        existing
+          ? db(
+              `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1, wins = wins + ?, losses = losses + ?
+               WHERE id = ?`,
+              [newRating, isWin, isLoss, existing.id]
+            )
+          : db(
+              `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
+               VALUES (?, '', ?, ?, ?, 1, ?, ?)`,
+              [crypto.randomUUID(), d.memberId, categoryId, newRating, isWin, isLoss]
+            ),
+      ]);
+    }));
 
     // Refresh data and go to rankings
     await loadData();
@@ -1252,7 +1248,7 @@ window.createCategory = async function() {
        VALUES (?, '', ?, ?, ?, ?, ?)`,
       [id, name, icon, gameType, now, ME?.id ?? ""]
     );
-    await loadData();
+    categories.push({ id, name, icon, game_type: gameType, match_count: 0, last_played: null, created_at: now });
     closeNewCategory();
     renderCategories();
     showToast(`"${name}" created!`);
