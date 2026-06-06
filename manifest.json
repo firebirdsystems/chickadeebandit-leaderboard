@@ -19,7 +19,7 @@
   "icon": "🏆",
   "nav": { "label": "Leaderboard" },
   "widget": { "label": "Rankings", "size": "medium" },
-  "subscribes_to": ["quiet-time.session-completed", "sea-battle.game-completed"],
+  "subscribes_to": ["game.completed"],
   "ai_access": {
     "allowed": true,
     "mode": "read",

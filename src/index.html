@@ -533,17 +533,17 @@ async function init() {
   await Promise.all([loadMembers(), loadData()]);
   renderRankings();
   // Process external events in the background; refresh rankings when done
-  Promise.all([processQuietTimeEvents(), processSeaBattleEvents()])
+  Promise.all([processGameEvents()])
     .then(() => loadData().then(renderRankings))
     .catch(console.error);
 }
 
-// ── Quiet Time event processing ───────────────────────────────────────────────
-const QUIET_TIME_CATEGORY = { name: "Quiet Time", icon: "🤫", gameType: "team" };
+// ── Generic game.completed event processing ───────────────────────────────────
+// Any app publishing game.completed with game_type "1v1" or "ranked" and a
+// category_name/category_icon will automatically create a leaderboard category
+// and have its results folded into ratings.
 
-async function processQuietTimeEvents() {
-  // Only fetch events newer than the most recent one we've already imported.
-  // Falls back to fetching all available events on first run.
+async function processGameEvents() {
   const { rows: [lastRow] } = await db(
     `SELECT MAX(played_at) as last_at FROM lb_matches WHERE source_event_id IS NOT NULL`
   );
@@ -551,7 +551,7 @@ async function processQuietTimeEvents() {
 
   let events = [];
   try {
-    const url = "/api/events?type=quiet-time.session-completed" +
+    const url = "/api/events?type=game.completed" +
       (since ? `&since=${encodeURIComponent(since)}` : "");
     const res = await fetch(url);
     if (!res.ok) return;
@@ -560,161 +560,126 @@ async function processQuietTimeEvents() {
 
   if (!events.length) return;
 
-  let quietTimeCategoryId = null;
+  const categoryCache = new Map();
 
   for (const event of events) {
-    // source_event_id on lb_matches is the correctness guard against duplicates
-    // (protects against the since cutoff being inclusive, or concurrent tabs)
+    // source_event_id is the dedup guard (protects against inclusive since cutoff or concurrent tabs)
     const { rows: seen } = await db(
       `SELECT 1 FROM lb_matches WHERE source_event_id = ?`, [event.id]
     );
     if (seen.length) continue;
 
-    const results = (event.payload?.results ?? []).filter(r => r.avgDb != null);
-    if (results.length < 2) continue;
+    const { game_type, winner_id, loser_id, results, category_name, category_icon } = event.payload ?? {};
+    if (!game_type || !category_name) continue;
 
-    // Lazy-create the Quiet Time category once per batch
-    if (!quietTimeCategoryId) {
-      quietTimeCategoryId = await ensureQuietTimeCategory();
-      if (!quietTimeCategoryId) continue;
+    const cacheKey = `${category_name}|${category_icon}`;
+    if (!categoryCache.has(cacheKey)) {
+      const id = await ensureCategory(category_name, category_icon ?? "", game_type);
+      if (!id) continue;
+      categoryCache.set(cacheKey, id);
     }
+    const categoryId = categoryCache.get(cacheKey);
 
-    const ranked = [...results].sort((a, b) => a.rank - b.rank);
-    const memberIds = ranked.map(r => r.memberId);
-    const placeholders = memberIds.map(() => "?").join(",");
-    const { rows: existingRatings } = await db(
-      `SELECT * FROM lb_ratings WHERE category_id = ? AND member_id IN (${placeholders})`,
-      [quietTimeCategoryId, ...memberIds]
-    );
-    const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
-    const getRating = (id) => ratingMap.get(id)?.rating ?? DEFAULT_RATING;
+    if (game_type === "1v1") {
+      if (!winner_id || !loser_id) continue;
 
-    const rankedPlayers = ranked.map(r => ({ memberId: r.memberId, rating: getRating(r.memberId) }));
-    const deltas = calcFfaDeltas(rankedPlayers);
+      const { rows: existingRatings } = await db(
+        `SELECT * FROM lb_ratings WHERE category_id = ? AND member_id IN (?, ?)`,
+        [categoryId, winner_id, loser_id]
+      );
+      const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
+      const getRating = (id) => ratingMap.get(id)?.rating ?? DEFAULT_RATING;
 
-    const matchId = crypto.randomUUID();
-    await db(
-      `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes, source_event_id)
-       VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?)`,
-      [matchId, quietTimeCategoryId, event.created_at, "Via Quiet Time", event.id]
-    );
+      const teamA = [{ memberId: winner_id, rating: getRating(winner_id) }];
+      const teamB = [{ memberId: loser_id,  rating: getRating(loser_id)  }];
+      const deltas = calcMatchDeltas(teamA, teamB, "A");
 
-    for (const d of deltas) {
-      const isWinner = d.memberId === rankedPlayers[0].memberId;
-      const result = isWinner ? "win" : "loss";
-      const newRating = Math.max(100, d.ratingBefore + d.delta);
-
+      const matchId = crypto.randomUUID();
       await db(
-        `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
-         VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, ?, ?)`,
-        [crypto.randomUUID(), matchId, d.memberId, isWinner ? 0 : 1, result, d.ratingBefore, newRating]
+        `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes, source_event_id)
+         VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?)`,
+        [matchId, categoryId, event.created_at, `Via ${category_name}`, event.id]
       );
 
-      const existing = ratingMap.get(d.memberId);
-      if (existing) {
+      for (const d of deltas) {
+        const isWinner  = d.memberId === winner_id;
+        const result    = isWinner ? "win" : "loss";
+        const newRating = Math.max(100, d.ratingBefore + d.delta);
         await db(
-          `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1,
-           wins = wins + ?, losses = losses + ? WHERE id = ?`,
-          [newRating, isWinner ? 1 : 0, isWinner ? 0 : 1, existing.id]
+          `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
+           VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, ?, ?)`,
+          [crypto.randomUUID(), matchId, d.memberId, isWinner ? 0 : 1, result, d.ratingBefore, newRating]
         );
-      } else {
+        const existing = ratingMap.get(d.memberId);
+        if (existing) {
+          await db(
+            `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1,
+             wins = wins + ?, losses = losses + ? WHERE id = ?`,
+            [newRating, isWinner ? 1 : 0, isWinner ? 0 : 1, existing.id]
+          );
+        } else {
+          await db(
+            `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
+             VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, 1, ?, ?)`,
+            [crypto.randomUUID(), d.memberId, categoryId, newRating, isWinner ? 1 : 0, isWinner ? 0 : 1]
+          );
+        }
+      }
+
+    } else if (game_type === "ranked") {
+      if (!Array.isArray(results) || results.length < 2) continue;
+
+      const ranked = [...results].sort((a, b) => a.rank - b.rank);
+      const memberIds = ranked.map(r => r.member_id);
+      const placeholders = memberIds.map(() => "?").join(",");
+      const { rows: existingRatings } = await db(
+        `SELECT * FROM lb_ratings WHERE category_id = ? AND member_id IN (${placeholders})`,
+        [categoryId, ...memberIds]
+      );
+      const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
+      const getRating = (id) => ratingMap.get(id)?.rating ?? DEFAULT_RATING;
+
+      const rankedPlayers = ranked.map(r => ({ memberId: r.member_id, rating: getRating(r.member_id) }));
+      const deltas = calcFfaDeltas(rankedPlayers);
+
+      const matchId = crypto.randomUUID();
+      await db(
+        `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes, source_event_id)
+         VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?)`,
+        [matchId, categoryId, event.created_at, `Via ${category_name}`, event.id]
+      );
+
+      for (const d of deltas) {
+        const isWinner  = d.memberId === rankedPlayers[0].memberId;
+        const result    = isWinner ? "win" : "loss";
+        const newRating = Math.max(100, d.ratingBefore + d.delta);
         await db(
-          `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
-           VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, 1, ?, ?)`,
-          [crypto.randomUUID(), d.memberId, quietTimeCategoryId, newRating, isWinner ? 1 : 0, isWinner ? 0 : 1]
+          `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
+           VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, ?, ?)`,
+          [crypto.randomUUID(), matchId, d.memberId, isWinner ? 0 : 1, result, d.ratingBefore, newRating]
         );
+        const existing = ratingMap.get(d.memberId);
+        if (existing) {
+          await db(
+            `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1,
+             wins = wins + ?, losses = losses + ? WHERE id = ?`,
+            [newRating, isWinner ? 1 : 0, isWinner ? 0 : 1, existing.id]
+          );
+        } else {
+          await db(
+            `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
+             VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, 1, ?, ?)`,
+            [crypto.randomUUID(), d.memberId, categoryId, newRating, isWinner ? 1 : 0, isWinner ? 0 : 1]
+          );
+        }
       }
     }
   }
 }
 
-// ── Sea Battle event processing ───────────────────────────────────────────────
-const SEA_BATTLE_CATEGORY = { name: "Sea Battle", icon: "⚓", gameType: "1v1" };
-
-async function processSeaBattleEvents() {
-  const { rows: [lastRow] } = await db(
-    `SELECT MAX(played_at) as last_at FROM lb_matches WHERE notes = 'Via Sea Battle'`
-  );
-  const since = lastRow?.last_at;
-
-  let events = [];
-  try {
-    const url = "/api/events?type=sea-battle.game-completed" +
-      (since ? `&since=${encodeURIComponent(since)}` : "");
-    const res = await fetch(url);
-    if (!res.ok) return;
-    events = await res.json();
-  } catch { return; }
-
-  if (!events.length) return;
-
-  let categoryId = null;
-
-  for (const event of events) {
-    const { rows: seen } = await db(
-      `SELECT 1 FROM lb_matches WHERE source_event_id = ?`, [event.id]
-    );
-    if (seen.length) continue;
-
-    const { winnerId, loserId } = event.payload ?? {};
-    if (!winnerId || !loserId) continue;
-
-    if (!categoryId) {
-      categoryId = await ensureSeaBattleCategory();
-      if (!categoryId) continue;
-    }
-
-    const { rows: existingRatings } = await db(
-      `SELECT * FROM lb_ratings WHERE category_id = ? AND member_id IN (?, ?)`,
-      [categoryId, winnerId, loserId]
-    );
-    const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
-    const getRating = (id) => ratingMap.get(id)?.rating ?? DEFAULT_RATING;
-
-    const teamA = [{ memberId: winnerId, rating: getRating(winnerId) }];
-    const teamB = [{ memberId: loserId,  rating: getRating(loserId)  }];
-    const deltas = calcMatchDeltas(teamA, teamB, "A");
-
-    const matchId = crypto.randomUUID();
-    await db(
-      `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes, source_event_id)
-       VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, 'Via Sea Battle', ?)`,
-      [matchId, categoryId, event.created_at, event.id]
-    );
-
-    for (const d of deltas) {
-      const isWinner  = d.memberId === winnerId;
-      const result    = isWinner ? "win" : "loss";
-      const newRating = Math.max(100, d.ratingBefore + d.delta);
-
-      await db(
-        `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
-         VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, ?, ?)`,
-        [crypto.randomUUID(), matchId, d.memberId, isWinner ? 0 : 1, result, d.ratingBefore, newRating]
-      );
-
-      const existing = ratingMap.get(d.memberId);
-      if (existing) {
-        await db(
-          `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1,
-           wins = wins + ?, losses = losses + ? WHERE id = ?`,
-          [newRating, isWinner ? 1 : 0, isWinner ? 0 : 1, existing.id]
-        );
-      } else {
-        await db(
-          `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
-           VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, 1, ?, ?)`,
-          [crypto.randomUUID(), d.memberId, categoryId, newRating, isWinner ? 1 : 0, isWinner ? 0 : 1]
-        );
-      }
-    }
-  }
-}
-
-async function ensureSeaBattleCategory() {
+async function ensureCategory(name, icon, gameType) {
   const { rows } = await db(
-    `SELECT id FROM lb_categories WHERE name = ? AND icon = ?`,
-    [SEA_BATTLE_CATEGORY.name, SEA_BATTLE_CATEGORY.icon]
+    `SELECT id FROM lb_categories WHERE name = ?`, [name]
   );
   if (rows.length) return rows[0].id;
   const id = crypto.randomUUID();
@@ -722,25 +687,7 @@ async function ensureSeaBattleCategory() {
     await db(
       `INSERT INTO lb_categories (id, household_id, name, icon, game_type, created_at, created_by)
        VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, '')`,
-      [id, SEA_BATTLE_CATEGORY.name, SEA_BATTLE_CATEGORY.icon, SEA_BATTLE_CATEGORY.gameType, new Date().toISOString()]
-    );
-    return id;
-  } catch { return null; }
-}
-
-async function ensureQuietTimeCategory() {
-  const { rows } = await db(
-    `SELECT id FROM lb_categories WHERE name = ? AND icon = ?`,
-    [QUIET_TIME_CATEGORY.name, QUIET_TIME_CATEGORY.icon]
-  );
-  if (rows.length) return rows[0].id;
-
-  const id = crypto.randomUUID();
-  try {
-    await db(
-      `INSERT INTO lb_categories (id, household_id, name, icon, game_type, created_at, created_by)
-       VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, '')`,
-      [id, QUIET_TIME_CATEGORY.name, QUIET_TIME_CATEGORY.icon, QUIET_TIME_CATEGORY.gameType, new Date().toISOString()]
+      [id, name, icon, gameType, new Date().toISOString()]
     );
     return id;
   } catch { return null; }
