@@ -7,11 +7,9 @@ SELECT
   c.name AS category_name,
   c.icon AS category_icon,
   c.game_type
-FROM lb_ratings r
-JOIN lb_categories c
-  ON c.id           = r.category_id
-  AND c.household_id = r.household_id
-WHERE r.household_id = current_setting('app.household_id', true)::uuid
-  AND r.games_played > 0
+FROM app_leaderboard__lb_ratings r
+JOIN app_leaderboard__lb_categories c
+  ON c.id = r.category_id
+WHERE r.games_played > 0
 ORDER BY c.name, r.rating DESC
 LIMIT 200

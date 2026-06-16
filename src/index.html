@@ -545,7 +545,7 @@ async function init() {
 
 async function processGameEvents() {
   const { rows: [lastRow] } = await db(
-    `SELECT MAX(played_at) as last_at FROM lb_matches WHERE source_event_id IS NOT NULL`
+    `SELECT MAX(played_at) as last_at FROM app_leaderboard__lb_matches WHERE source_event_id IS NOT NULL`
   );
   const since = lastRow?.last_at;
 
@@ -565,7 +565,7 @@ async function processGameEvents() {
   for (const event of events) {
     // source_event_id is the dedup guard (protects against inclusive since cutoff or concurrent tabs)
     const { rows: seen } = await db(
-      `SELECT 1 FROM lb_matches WHERE source_event_id = ?`, [event.id]
+      `SELECT 1 FROM app_leaderboard__lb_matches WHERE source_event_id = ?`, [event.id]
     );
     if (seen.length) continue;
 
@@ -584,7 +584,7 @@ async function processGameEvents() {
       if (!winner_id || !loser_id) continue;
 
       const { rows: existingRatings } = await db(
-        `SELECT * FROM lb_ratings WHERE category_id = ? AND member_id IN (?, ?)`,
+        `SELECT * FROM app_leaderboard__lb_ratings WHERE category_id = ? AND member_id IN (?, ?)`,
         [categoryId, winner_id, loser_id]
       );
       const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
@@ -596,8 +596,8 @@ async function processGameEvents() {
 
       const matchId = crypto.randomUUID();
       await db(
-        `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes, source_event_id)
-         VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?)`,
+        `INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, notes, source_event_id)
+         VALUES (?, ?, ?, ?, ?)`,
         [matchId, categoryId, event.created_at, `Via ${category_name}`, event.id]
       );
 
@@ -606,21 +606,21 @@ async function processGameEvents() {
         const result    = isWinner ? "win" : "loss";
         const newRating = Math.max(100, d.ratingBefore + d.delta);
         await db(
-          `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
-           VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [crypto.randomUUID(), matchId, d.memberId, isWinner ? 0 : 1, result, d.ratingBefore, newRating]
         );
         const existing = ratingMap.get(d.memberId);
         if (existing) {
           await db(
-            `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1,
+            `UPDATE app_leaderboard__lb_ratings SET rating = ?, games_played = games_played + 1,
              wins = wins + ?, losses = losses + ? WHERE id = ?`,
             [newRating, isWinner ? 1 : 0, isWinner ? 0 : 1, existing.id]
           );
         } else {
           await db(
-            `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
-             VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, 1, ?, ?)`,
+            `INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses)
+             VALUES (?, ?, ?, ?, 1, ?, ?)`,
             [crypto.randomUUID(), d.memberId, categoryId, newRating, isWinner ? 1 : 0, isWinner ? 0 : 1]
           );
         }
@@ -633,7 +633,7 @@ async function processGameEvents() {
       const memberIds = ranked.map(r => r.member_id);
       const placeholders = memberIds.map(() => "?").join(",");
       const { rows: existingRatings } = await db(
-        `SELECT * FROM lb_ratings WHERE category_id = ? AND member_id IN (${placeholders})`,
+        `SELECT * FROM app_leaderboard__lb_ratings WHERE category_id = ? AND member_id IN (${placeholders})`,
         [categoryId, ...memberIds]
       );
       const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
@@ -644,8 +644,8 @@ async function processGameEvents() {
 
       const matchId = crypto.randomUUID();
       await db(
-        `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes, source_event_id)
-         VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?)`,
+        `INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, notes, source_event_id)
+         VALUES (?, ?, ?, ?, ?)`,
         [matchId, categoryId, event.created_at, `Via ${category_name}`, event.id]
       );
 
@@ -654,21 +654,21 @@ async function processGameEvents() {
         const result    = isWinner ? "win" : "loss";
         const newRating = Math.max(100, d.ratingBefore + d.delta);
         await db(
-          `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
-           VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [crypto.randomUUID(), matchId, d.memberId, isWinner ? 0 : 1, result, d.ratingBefore, newRating]
         );
         const existing = ratingMap.get(d.memberId);
         if (existing) {
           await db(
-            `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1,
+            `UPDATE app_leaderboard__lb_ratings SET rating = ?, games_played = games_played + 1,
              wins = wins + ?, losses = losses + ? WHERE id = ?`,
             [newRating, isWinner ? 1 : 0, isWinner ? 0 : 1, existing.id]
           );
         } else {
           await db(
-            `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
-             VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, 1, ?, ?)`,
+            `INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses)
+             VALUES (?, ?, ?, ?, 1, ?, ?)`,
             [crypto.randomUUID(), d.memberId, categoryId, newRating, isWinner ? 1 : 0, isWinner ? 0 : 1]
           );
         }
@@ -679,14 +679,14 @@ async function processGameEvents() {
 
 async function ensureCategory(name, icon, gameType) {
   const { rows } = await db(
-    `SELECT id FROM lb_categories WHERE name = ?`, [name]
+    `SELECT id FROM app_leaderboard__lb_categories WHERE name = ?`, [name]
   );
   if (rows.length) return rows[0].id;
   const id = crypto.randomUUID();
   try {
     await db(
-      `INSERT INTO lb_categories (id, household_id, name, icon, game_type, created_at, created_by)
-       VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, '')`,
+      `INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by)
+       VALUES (?, ?, ?, ?, ?, '')`,
       [id, name, icon, gameType, new Date().toISOString()]
     );
     return id;
@@ -711,10 +711,10 @@ async function loadMembers() {
 
 async function loadData() {
   const [catResult, ratingResult] = await Promise.all([
-    db(`SELECT c.*, (SELECT COUNT(*) FROM lb_matches m WHERE m.category_id = c.id) as match_count,
-        (SELECT MAX(played_at) FROM lb_matches WHERE category_id = c.id) as last_played
-        FROM lb_categories c ORDER BY last_played DESC`),
-    db(`SELECT * FROM lb_ratings`),
+    db(`SELECT c.*, (SELECT COUNT(*) FROM app_leaderboard__lb_matches m WHERE m.category_id = c.id) as match_count,
+        (SELECT MAX(played_at) FROM app_leaderboard__lb_matches WHERE category_id = c.id) as last_played
+        FROM app_leaderboard__lb_categories c ORDER BY last_played DESC`),
+    db(`SELECT * FROM app_leaderboard__lb_ratings`),
   ]);
   categories = catResult.rows;
   allRatings = ratingResult.rows;
@@ -829,9 +829,9 @@ window.openCategoryDetail = async function(categoryId) {
   document.getElementById("app-title").textContent = `${cat.icon} ${cat.name}`;
 
   const [{ rows: catRatings }, { rows: matches }, { rows: participants }] = await Promise.all([
-    db(`SELECT * FROM lb_ratings WHERE category_id = ? ORDER BY rating DESC`, [categoryId]),
-    db(`SELECT * FROM lb_matches WHERE category_id = ? ORDER BY played_at DESC LIMIT 20`, [categoryId]),
-    db(`SELECT p.* FROM lb_participants p WHERE p.match_id IN (SELECT id FROM lb_matches WHERE category_id = ? ORDER BY played_at DESC LIMIT 20)`, [categoryId]),
+    db(`SELECT * FROM app_leaderboard__lb_ratings WHERE category_id = ? ORDER BY rating DESC`, [categoryId]),
+    db(`SELECT * FROM app_leaderboard__lb_matches WHERE category_id = ? ORDER BY played_at DESC LIMIT 20`, [categoryId]),
+    db(`SELECT p.* FROM app_leaderboard__lb_participants p WHERE p.match_id IN (SELECT id FROM app_leaderboard__lb_matches WHERE category_id = ? ORDER BY played_at DESC LIMIT 20)`, [categoryId]),
   ]);
 
   // Rankings
@@ -1081,7 +1081,7 @@ window.submitMatch = async function() {
     const allIds = [...new Set([...teamA, ...teamB])];
     const placeholders = allIds.map(() => "?").join(",");
     const { rows: existingRatings } = await db(
-      `SELECT * FROM lb_ratings WHERE category_id = ? AND member_id IN (${placeholders})`,
+      `SELECT * FROM app_leaderboard__lb_ratings WHERE category_id = ? AND member_id IN (${placeholders})`,
       [categoryId, ...allIds]
     );
     const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
@@ -1097,7 +1097,7 @@ window.submitMatch = async function() {
     const matchId = crypto.randomUUID();
     const now = new Date().toISOString();
     await db(
-      `INSERT INTO lb_matches (id, household_id, category_id, played_at, notes) VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?)`,
+      `INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, notes) VALUES (?, ?, ?, ?)`,
       [matchId, categoryId, now, notes || null]
     );
 
@@ -1117,19 +1117,19 @@ window.submitMatch = async function() {
 
       await Promise.all([
         db(
-          `INSERT INTO lb_participants (id, household_id, match_id, member_id, team, result, rating_before, rating_after)
-           VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [crypto.randomUUID(), matchId, d.memberId, team, result, d.ratingBefore, newRating]
         ),
         existing
           ? db(
-              `UPDATE lb_ratings SET rating = ?, games_played = games_played + 1, wins = wins + ?, losses = losses + ?
+              `UPDATE app_leaderboard__lb_ratings SET rating = ?, games_played = games_played + 1, wins = wins + ?, losses = losses + ?
                WHERE id = ?`,
               [newRating, isWin, isLoss, existing.id]
             )
           : db(
-              `INSERT INTO lb_ratings (id, household_id, member_id, category_id, rating, games_played, wins, losses)
-               VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, 1, ?, ?)`,
+              `INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses)
+               VALUES (?, ?, ?, ?, 1, ?, ?)`,
               [crypto.randomUUID(), d.memberId, categoryId, newRating, isWin, isLoss]
             ),
       ]);
@@ -1191,8 +1191,8 @@ window.createCategory = async function() {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     await db(
-      `INSERT INTO lb_categories (id, household_id, name, icon, game_type, created_at, created_by)
-       VALUES (?, current_setting('app.household_id', true)::uuid, ?, ?, ?, ?, ?)`,
+      `INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [id, name, icon, gameType, now, ME?.id ?? ""]
     );
     categories.push({ id, name, icon, game_type: gameType, match_count: 0, last_played: null, created_at: now });

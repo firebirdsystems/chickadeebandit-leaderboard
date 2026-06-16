@@ -9,12 +9,10 @@ SELECT
   p.result,
   p.rating_before,
   p.rating_after
-FROM lb_matches m
-JOIN lb_categories c
-  ON c.id           = m.category_id
-  AND c.household_id = m.household_id
-JOIN lb_participants p
+FROM app_leaderboard__lb_matches m
+JOIN app_leaderboard__lb_categories c
+  ON c.id = m.category_id
+JOIN app_leaderboard__lb_participants p
   ON p.match_id = m.id
-WHERE m.household_id = current_setting('app.household_id', true)::uuid
 ORDER BY m.played_at DESC
 LIMIT 200
