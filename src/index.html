@@ -979,16 +979,17 @@ window.toggleMemberTeam = function(memberId) {
   } else {
     const inA = teamA.indexOf(memberId);
     const inB = teamB.indexOf(memberId);
+    const maxPerTeam = gameType === "1v1" ? 1 : Infinity;
     if (inA >= 0) {
-      // A → B
+      // A → B (skip B if full)
       teamA.splice(inA, 1);
-      teamB.push(memberId);
+      if (teamB.length < maxPerTeam) teamB.push(memberId);
     } else if (inB >= 0) {
       // B → unselected
       teamB.splice(inB, 1);
     } else {
-      // unselected → A
-      teamA.push(memberId);
+      // unselected → A (only if room)
+      if (teamA.length < maxPerTeam) teamA.push(memberId);
     }
   }
 
