@@ -976,20 +976,32 @@ window.toggleMemberTeam = function(memberId) {
     const idx = teamA.indexOf(memberId);
     if (idx >= 0) teamA.splice(idx, 1);
     else teamA.push(memberId);
+  } else if (gameType === "1v1") {
+    const inA = teamA.indexOf(memberId);
+    const inB = teamB.indexOf(memberId);
+    if (inA >= 0) {
+      teamA.splice(inA, 1);
+    } else if (inB >= 0) {
+      teamB.splice(inB, 1);
+    } else if (teamA.length < 1) {
+      teamA.push(memberId);
+    } else if (teamB.length < 1) {
+      teamB.push(memberId);
+    }
+    // both teams full — do nothing
   } else {
     const inA = teamA.indexOf(memberId);
     const inB = teamB.indexOf(memberId);
-    const maxPerTeam = gameType === "1v1" ? 1 : Infinity;
     if (inA >= 0) {
-      // A → B (skip B if full)
+      // A → B
       teamA.splice(inA, 1);
-      if (teamB.length < maxPerTeam) teamB.push(memberId);
+      teamB.push(memberId);
     } else if (inB >= 0) {
       // B → unselected
       teamB.splice(inB, 1);
     } else {
-      // unselected → A (only if room)
-      if (teamA.length < maxPerTeam) teamA.push(memberId);
+      // unselected → A
+      teamA.push(memberId);
     }
   }
 
