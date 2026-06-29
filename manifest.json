@@ -16,6 +16,7 @@
     "requires_approval": false
   },
   "storage": "db",
+  "db_encryption": "off",
   "icon": "🏆",
   "nav": { "label": "Leaderboard" },
   "widget": { "label": "Rankings", "size": "medium" },
