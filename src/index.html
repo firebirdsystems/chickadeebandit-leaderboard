@@ -786,7 +786,7 @@ function renderRankings() {
       const champ = champMap.get(c.id);
       const member = members.find(m => m.id === champ.memberId);
       return `
-        <div class="champion-chip" onclick="openCategoryDetail('${esc(c.id)}')">
+        <div class="champion-chip" data-cat-id="${esc(c.id)}">
           <span class="champion-icon">${esc(c.icon)}</span>
           <div class="champion-info">
             <div class="champion-cat">${esc(c.name)}</div>
@@ -802,7 +802,7 @@ function renderCategories() {
   const grid = document.getElementById("categories-grid");
   grid.innerHTML = `
     ${categories.map(c => `
-      <div class="category-card" onclick="openCategoryDetail('${esc(c.id)}')">
+      <div class="category-card" data-cat-id="${esc(c.id)}">
         <div class="category-card-icon">${esc(c.icon)}</div>
         <div class="category-card-name">${esc(c.name)}</div>
         <div class="category-card-meta">${gameTypeLabel(c.game_type)} · ${c.match_count ?? 0} match${(c.match_count ?? 0) === 1 ? "" : "es"}</div>
@@ -956,7 +956,7 @@ function renderTeamBuilder() {
   chips.innerHTML = members.map(m => {
     const color = memberColor(m.id, members);
     return `
-      <div class="member-chip" id="chip-${esc(m.id)}" onclick="toggleMemberTeam('${esc(m.id)}')">
+      <div class="member-chip" id="chip-${esc(m.id)}" data-member-id="${esc(m.id)}">
         <span class="member-avatar sm" style="background:${color}">${esc(initial(m.name))}</span>
         <span>${esc(m.name)}</span>
         <span class="chip-label" id="chip-label-${esc(m.id)}"></span>
@@ -1235,6 +1235,21 @@ document.addEventListener("keydown", e => {
 });
 document.getElementById("modal-new-category").addEventListener("click", e => {
   if (e.target === e.currentTarget) closeNewCategory();
+});
+
+// ── Delegated listeners (avoid interpolating DB-controlled ids into inline
+//    onclick handlers — attribute entity-decoding defeats HTML escaping there) ──
+document.getElementById("champions-grid").addEventListener("click", e => {
+  const el = e.target.closest("[data-cat-id]");
+  if (el) openCategoryDetail(el.dataset.catId);
+});
+document.getElementById("categories-grid").addEventListener("click", e => {
+  const el = e.target.closest("[data-cat-id]");
+  if (el) openCategoryDetail(el.dataset.catId);
+});
+document.getElementById("record-member-chips").addEventListener("click", e => {
+  const el = e.target.closest("[data-member-id]");
+  if (el) toggleMemberTeam(el.dataset.memberId);
 });
 
 function handleDeepLink() {
