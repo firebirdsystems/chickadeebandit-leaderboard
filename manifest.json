@@ -1,5 +1,6 @@
 {
   "id": "leaderboard",
+  "contexts": ["household", "shared_space"],
   "name": "Leaderboard",
   "version": "1.0.0",
   "description": "Track wins and ratings across any competition — video games, foosball, board games, and more. Elo-based ratings reward beating stronger opponents and winning with weaker teammates.",
