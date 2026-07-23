@@ -2,7 +2,7 @@
   "id": "leaderboard",
   "contexts": ["household", "shared_space"],
   "name": "Leaderboard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Track wins and ratings across any competition — video games, foosball, board games, and more. Elo-based ratings reward beating stronger opponents and winning with weaker teammates.",
   "entrypoint": "index.html",
   "runtime": "static",
@@ -18,6 +18,11 @@
   },
   "storage": "db",
   "db_encryption": "off",
+  "row_policies": {
+    "lb_categories": {
+      "kind": "adult_writable"
+    }
+  },
   "icon": "🏆",
   "nav": { "label": "Leaderboard" },
   "widget": { "label": "Rankings", "size": "medium" },

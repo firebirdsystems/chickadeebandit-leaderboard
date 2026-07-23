@@ -507,6 +507,13 @@ const DB      = window.__DB_URL      ?? "";
 const ME      = window.__CURRENT_MEMBER ?? null;
 const APP_ID  = window.__APP_ID ?? "leaderboard";
 
+// Categories are adult_writable (manifest row_policies): the server rejects
+// category writes from non-adults, so gate the UI to match. Demo mode (no ME)
+// stays permissive so the standalone preview keeps working.
+function canManageCategories() {
+  return !ME || ME.role === "adult";
+}
+
 // ── State ──────────────────────────────────────────────────────────────────────
 let members = [];
 let categories = [];
@@ -808,10 +815,11 @@ function renderCategories() {
         <div class="category-card-meta">${gameTypeLabel(c.game_type)} · ${c.match_count ?? 0} match${(c.match_count ?? 0) === 1 ? "" : "es"}</div>
       </div>
     `).join("")}
+    ${canManageCategories() ? `
     <button class="add-category-card" onclick="openNewCategory()">
       <span class="plus">+</span>
       <span>New Category</span>
-    </button>
+    </button>` : ""}
   `;
 }
 
@@ -1165,6 +1173,7 @@ const ICONS = ["🏆","⚽","🏀","🎮","🎯","♟️","🎾","🏓","🎲","
 const selectedIcon = { value: ICONS[0] };
 
 window.openNewCategory = function() {
+  if (!canManageCategories()) { showToast("Only adults can create categories."); return; }
   document.getElementById("new-cat-name").value = "";
   selectedIcon.value = ICONS[0];
   document.getElementById("create-cat-btn").disabled = true;
@@ -1191,6 +1200,7 @@ window.onNewCatInput = function() {
 };
 
 window.createCategory = async function() {
+  if (!canManageCategories()) { showToast("Only adults can create categories."); return; }
   const name = document.getElementById("new-cat-name").value.trim();
   const icon = selectedIcon.value;
   const gameType = document.getElementById("new-cat-type").value;
