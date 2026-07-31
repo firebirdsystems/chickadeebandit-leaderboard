@@ -18,6 +18,23 @@
   },
   "storage": "db",
   "db_encryption": "off",
+    "member_references": {
+      "lb_categories": {
+        "column": "created_by",
+        "on_removed": "keep"
+      },
+      "lb_participants": {
+        "column": "member_id",
+        "on_removed": "keep"
+      },
+      "lb_ratings": {
+        "column": "member_id",
+        "on_removed": "delete"
+      }
+    },
+  "resource_limits": {
+    "max_db_bytes": 52428800
+  },
   "row_policies": {
     "lb_categories": {
       "kind": "adult_writable"
