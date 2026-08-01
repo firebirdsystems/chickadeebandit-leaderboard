@@ -541,12 +541,12 @@ async function db(sql, params = []) {
 // half-updated leaderboard that the UI has no way to repair. D1 runs a batch
 // transactionally, so it lands whole or not at all. Throws on rejection so the
 // caller does not treat a refused batch as applied.
-// /api/db caps a batch at 10 statements. A match costs one match row plus a
-// participant row and a ratings upsert per player, so a match of up to four
+// /api/db caps a batch at 25 statements. A match costs one match row plus a
+// participant row and a ratings upsert per player, so a match of up to twelve
 // players lands as a single atomic batch; a bigger free-for-all spans batches
 // and loses atomicity only at that boundary — which is where every match was
 // before, at every statement.
-const MAX_BATCH = 10;
+const MAX_BATCH = 25;
 
 async function dbBatch(statements) {
   if (!DB || !statements.length) return [];
