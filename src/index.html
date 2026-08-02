@@ -506,6 +506,20 @@ const CONTEXT = window.__CONTEXT_URL ?? "";
 const DB      = window.__DB_URL      ?? "";
 const ME      = window.__CURRENT_MEMBER ?? null;
 const APP_ID  = window.__APP_ID ?? "leaderboard";
+const EVENTS  = window.__EVENTS_URL ?? "";
+
+async function publishEvent(type, subjectId, payload = {}) {
+  if (!EVENTS) return;
+  try {
+    await fetch(EVENTS, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, subject_id: subjectId, payload }),
+    });
+  } catch {
+    // The match batch has already committed; publishing is best-effort.
+  }
+}
 
 // Categories are adult_writable (manifest row_policies): the server rejects
 // category writes from non-adults, so gate the UI to match. Demo mode (no ME)
@@ -1174,6 +1188,20 @@ window.submitMatch = async function() {
       });
     }
     await dbBatchAll(statements);
+
+    // winner_member_id is set only when the win belongs to exactly one person.
+    // A team result has several winners and the payload has no way to say so,
+    // and a rule like "award points to the winner" must not silently pick one
+    // of them; downstream rules should skip the event when this is null.
+    const winners = deltas.filter(d => (
+      isCooperative ? winningSide === "A" : teamA.includes(d.memberId) === (winningSide === "A")
+    ));
+    await publishEvent("leaderboard.match_recorded", matchId, {
+      category_id: categoryId,
+      winning_side: winningSide,
+      player_count: deltas.length,
+      winner_member_id: winners.length === 1 && winningSide !== "draw" ? winners[0].memberId : null,
+    });
 
     // Refresh data and go to rankings
     await loadData();

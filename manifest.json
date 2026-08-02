@@ -41,7 +41,18 @@
     }
   },
   "icon": "🏆",
+  "publishes": ["leaderboard.match_recorded"],
+  "publish_acls": {
+    "leaderboard.match_recorded": { "require_role": "member" }
+  },
   "nav": { "label": "Leaderboard" },
+  "glance": {
+    "source": {
+      "kind": "sql",
+      "query": "SELECT c.name AS title, printf('%d W - %d L', r.wins, r.losses) AS subtitle, r.member_id AS member_id FROM app_leaderboard__lb_ratings r JOIN app_leaderboard__lb_categories c ON c.id = r.category_id WHERE r.games_played > 0 ORDER BY r.rating DESC LIMIT 3"
+    },
+    "display": { "template": "list", "title": "title", "subtitle": "subtitle", "owner": "member_id" }
+  },
   "widget": { "label": "Rankings", "size": "medium" },
   "subscribes_to": ["game.completed"],
   "ai_access": {
