@@ -17,6 +17,10 @@
     "requires_approval": false
   },
   "storage": "db",
+  "preload": {
+    "lb_matches": {"sql": "SELECT c.*, (SELECT COUNT(*) FROM app_leaderboard__lb_matches m WHERE m.category_id = c.id) as match_count, (SELECT MAX(played_at) FROM app_leaderboard__lb_matches WHERE category_id = c.id) as last_played FROM app_leaderboard__lb_categories c ORDER BY last_played DESC"},
+    "lb_ratings": {"sql": "SELECT * FROM app_leaderboard__lb_ratings"}
+  },
   "db_encryption": "off",
     "member_references": {
       "lb_categories": {
