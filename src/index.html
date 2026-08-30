@@ -364,34 +364,34 @@
 <body>
 
 <div class="app-header">
-  <button class="back-btn" id="back-btn" onclick="goBack()">← <span id="back-label">Back</span></button>
-  <h1 class="app-title" id="app-title">🏆 Leaderboard</h1>
+  <button class="back-btn" id="back-btn" data-testid="back" onclick="goBack()">← <span id="back-label">Back</span></button>
+  <h1 class="app-title" id="app-title" data-testid="app-title">🏆 Leaderboard</h1>
 </div>
 
 <nav class="tab-nav" id="tab-nav">
-  <button class="active" onclick="switchTab('rankings')">Rankings</button>
-  <button onclick="switchTab('categories')">Categories</button>
-  <button onclick="switchTab('record')">+ Record</button>
+  <button class="active" data-testid="tab-rankings" onclick="switchTab('rankings')">Rankings</button>
+  <button data-testid="tab-categories" onclick="switchTab('categories')">Categories</button>
+  <button data-testid="tab-record" onclick="switchTab('record')">+ Record</button>
 </nav>
 
 <!-- ── Rankings tab ── -->
 <div id="view-rankings" class="view active">
   <div class="card">
     <div class="card-title">Overall Rankings</div>
-    <div id="overall-list">
+    <div id="overall-list" data-testid="overall-list">
       <div class="empty-state"><div class="empty-icon">🏆</div><p>No matches recorded yet</p></div>
     </div>
   </div>
-  <div class="card" id="champions-card" style="display:none">
+  <div class="card" id="champions-card" data-testid="champions-card" style="display:none">
     <div class="card-title">Category Champions</div>
-    <div class="champions-grid" id="champions-grid"></div>
+    <div class="champions-grid" id="champions-grid" data-testid="champions-grid"></div>
   </div>
 </div>
 
 <!-- ── Categories tab ── -->
 <div id="view-categories" class="view">
-  <div class="categories-grid" id="categories-grid">
-    <button class="add-category-card" onclick="openNewCategory()">
+  <div class="categories-grid" id="categories-grid" data-testid="categories-grid">
+    <button class="add-category-card" data-testid="add-category" onclick="openNewCategory()">
       <span class="plus">+</span>
       <span>New Category</span>
     </button>
@@ -402,77 +402,77 @@
 <div id="view-category-detail" class="view">
   <div class="card">
     <div class="card-title">Rankings</div>
-    <div id="cat-detail-rankings"></div>
+    <div id="cat-detail-rankings" data-testid="cat-detail-rankings"></div>
   </div>
   <div class="card">
     <div class="card-title">Recent Matches</div>
-    <div id="cat-detail-matches"></div>
+    <div id="cat-detail-matches" data-testid="cat-detail-matches"></div>
   </div>
 </div>
 
 <!-- ── Record tab ── -->
 <div id="view-record" class="view">
   <!-- Step 1: Category -->
-  <div id="record-step-1" class="record-step active card">
+  <div id="record-step-1" class="record-step active card" data-testid="record-step-1">
     <div class="record-step-header">Step 1 of 3 — Choose Category</div>
     <div class="form-group">
       <label for="record-category">Category</label>
-      <select id="record-category" onchange="onCategorySelect()">
+      <select id="record-category" data-testid="record-category" onchange="onCategorySelect()">
         <option value="">Select a category…</option>
       </select>
     </div>
     <div id="record-game-type-info" style="display:none; font-size:.85rem; color:var(--hub-text-muted,#6b7280); margin-bottom:16px;"></div>
     <div class="step-actions">
-      <button class="btn-primary" onclick="recordNext(2)" disabled id="record-step1-next">Next →</button>
+      <button class="btn-primary" onclick="recordNext(2)" disabled id="record-step1-next" data-testid="record-step1-next">Next →</button>
     </div>
   </div>
 
   <!-- Step 2: Teams -->
-  <div id="record-step-2" class="record-step card">
+  <div id="record-step-2" class="record-step card" data-testid="record-step-2">
     <div class="record-step-header">Step 2 of 3 — Pick Players</div>
     <p id="record-team-hint" style="font-size:.85rem; color:var(--hub-text-muted,#6b7280); margin-bottom:14px;"></p>
-    <div class="member-chips" id="record-member-chips"></div>
+    <div class="member-chips" id="record-member-chips" data-testid="member-chips"></div>
     <div class="team-builder" id="record-team-builder">
       <div class="team-section">
         <div class="team-section-label" style="color:#6366f1;">🔵 Team A</div>
-        <div class="team-slots" id="team-a-slots"><span style="font-size:.8rem; color:#9ca3af; align-self:center;">No players selected</span></div>
+        <div class="team-slots" id="team-a-slots" data-testid="team-a-slots"><span style="font-size:.8rem; color:#9ca3af; align-self:center;">No players selected</span></div>
       </div>
       <div class="team-section" id="team-b-section">
         <div class="team-section-label" style="color:#d97706;">🟡 Team B</div>
-        <div class="team-slots" id="team-b-slots"><span style="font-size:.8rem; color:#9ca3af; align-self:center;">No players selected</span></div>
+        <div class="team-slots" id="team-b-slots" data-testid="team-b-slots"><span style="font-size:.8rem; color:#9ca3af; align-self:center;">No players selected</span></div>
       </div>
     </div>
     <div class="step-actions">
       <button class="btn-secondary" onclick="recordNext(1)">← Back</button>
-      <button class="btn-primary" onclick="recordNext(3)" disabled id="record-step2-next">Next →</button>
+      <button class="btn-primary" onclick="recordNext(3)" disabled id="record-step2-next" data-testid="record-step2-next">Next →</button>
     </div>
   </div>
 
   <!-- Step 3: Result -->
-  <div id="record-step-3" class="record-step card">
+  <div id="record-step-3" class="record-step card" data-testid="record-step-3">
     <div class="record-step-header">Step 3 of 3 — Record Result</div>
     <div class="form-group">
       <label>Who won?</label>
-      <div class="result-options" id="result-options"></div>
+      <div class="result-options" id="result-options" data-testid="result-options"></div>
     </div>
     <div class="form-group">
       <label for="record-notes">Notes (optional)</label>
-      <textarea id="record-notes" placeholder="e.g. close game, overtime…"></textarea>
+      <textarea id="record-notes" data-testid="field-notes" placeholder="e.g. close game, overtime…"></textarea>
     </div>
     <div class="step-actions">
       <button class="btn-secondary" onclick="recordNext(2)">← Back</button>
-      <button class="btn-primary" onclick="submitMatch()" disabled id="record-submit">Save Match</button>
+      <button class="btn-primary" onclick="submitMatch()" disabled id="record-submit" data-testid="record-submit">Save Match</button>
     </div>
   </div>
 </div>
 
 <!-- ── New Category modal ── -->
-<div class="modal-backdrop" id="modal-new-category">
+<div class="modal-backdrop" id="modal-new-category" data-testid="new-category-modal">
   <div class="modal">
     <h2>New Category</h2>
     <div class="form-group">
       <label for="new-cat-name">Name</label>
-      <input type="text" id="new-cat-name" placeholder="e.g. Foosball, Mario Kart…" oninput="onNewCatInput()" />
+      <input type="text" id="new-cat-name" data-testid="field-category-name" placeholder="e.g. Foosball, Mario Kart…" oninput="onNewCatInput()" />
     </div>
     <div class="form-group">
       <label>Icon</label>
@@ -480,20 +480,20 @@
     </div>
     <div class="form-group">
       <label for="new-cat-type">Game Type</label>
-      <select id="new-cat-type">
+      <select id="new-cat-type" data-testid="field-category-type">
         <option value="1v1">1 vs 1 — two individual players</option>
         <option value="team">Teams — two teams of any size</option>
         <option value="cooperative">Co-op — everyone on the same side</option>
       </select>
     </div>
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="closeNewCategory()">Cancel</button>
-      <button class="btn-primary" id="create-cat-btn" onclick="createCategory()" disabled>Create</button>
+      <button class="btn-secondary" data-testid="cancel-category" onclick="closeNewCategory()">Cancel</button>
+      <button class="btn-primary" id="create-cat-btn" data-testid="create-category" onclick="createCategory()" disabled>Create</button>
     </div>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" data-testid="toast"></div>
 
 <script type="module">
 import { esc, memberColor, initial } from "/hub-sdk.js";
@@ -806,16 +806,16 @@ function renderRankings() {
       const wins = allRatings.filter(r => r.member_id === member.id).reduce((s, r) => s + r.wins, 0);
       const losses = allRatings.filter(r => r.member_id === member.id).reduce((s, r) => s + r.losses, 0);
       return `
-        <div class="lb-row">
-          <div class="lb-rank">${rankLabel(i)}</div>
+        <div class="lb-row" data-testid="lb-row" data-member-id="${esc(member.id)}">
+          <div class="lb-rank" data-testid="lb-rank">${rankLabel(i)}</div>
           <span class="member-avatar" style="background:${color}">${esc(initial(member.name))}</span>
           <div style="flex:1; min-width:0;">
-            <div class="lb-name">${esc(member.name)}</div>
-            <div class="lb-record">W${wins} L${losses} · ${totalGames} game${totalGames === 1 ? "" : "s"}</div>
+            <div class="lb-name" data-testid="lb-name">${esc(member.name)}</div>
+            <div class="lb-record" data-testid="lb-record">W${wins} L${losses} · ${totalGames} game${totalGames === 1 ? "" : "s"}</div>
           </div>
           ${rating
-            ? `<div class="lb-rating">${rating}</div>`
-            : `<div class="lb-no-rating">${totalGames} game${totalGames === 1 ? "" : "s"}</div>`
+            ? `<div class="lb-rating" data-testid="lb-rating">${rating}</div>`
+            : `<div class="lb-no-rating" data-testid="lb-no-rating">${totalGames} game${totalGames === 1 ? "" : "s"}</div>`
           }
         </div>
       `;
@@ -834,11 +834,11 @@ function renderRankings() {
       const champ = champMap.get(c.id);
       const member = members.find(m => m.id === champ.memberId);
       return `
-        <div class="champion-chip" data-cat-id="${esc(c.id)}">
+        <div class="champion-chip" data-testid="champion-chip" data-cat-id="${esc(c.id)}">
           <span class="champion-icon">${esc(c.icon)}</span>
           <div class="champion-info">
-            <div class="champion-cat">${esc(c.name)}</div>
-            <div class="champion-name">${member ? esc(member.name) : "Unknown"}</div>
+            <div class="champion-cat" data-testid="champion-cat">${esc(c.name)}</div>
+            <div class="champion-name" data-testid="champion-name">${member ? esc(member.name) : "Unknown"}</div>
           </div>
         </div>
       `;
@@ -850,14 +850,14 @@ function renderCategories() {
   const grid = document.getElementById("categories-grid");
   grid.innerHTML = `
     ${categories.map(c => `
-      <div class="category-card" data-cat-id="${esc(c.id)}">
+      <div class="category-card" data-testid="category-card" data-cat-id="${esc(c.id)}">
         <div class="category-card-icon">${esc(c.icon)}</div>
-        <div class="category-card-name">${esc(c.name)}</div>
-        <div class="category-card-meta">${gameTypeLabel(c.game_type)} · ${c.match_count ?? 0} match${(c.match_count ?? 0) === 1 ? "" : "es"}</div>
+        <div class="category-card-name" data-testid="category-card-name">${esc(c.name)}</div>
+        <div class="category-card-meta" data-testid="category-card-meta">${gameTypeLabel(c.game_type)} · ${c.match_count ?? 0} match${(c.match_count ?? 0) === 1 ? "" : "es"}</div>
       </div>
     `).join("")}
     ${canManageCategories() ? `
-    <button class="add-category-card" onclick="openNewCategory()">
+    <button class="add-category-card" data-testid="add-category" onclick="openNewCategory()">
       <span class="plus">+</span>
       <span>New Category</span>
     </button>` : ""}
@@ -892,14 +892,14 @@ window.openCategoryDetail = async function(categoryId) {
       const member = members.find(m => m.id === r.member_id);
       const color = member ? memberColor(r.member_id, members) : "#9ca3af";
       return `
-        <div class="lb-row">
-          <div class="lb-rank">${rankLabel(i)}</div>
+        <div class="lb-row" data-testid="cat-lb-row" data-member-id="${esc(r.member_id)}">
+          <div class="lb-rank" data-testid="cat-lb-rank">${rankLabel(i)}</div>
           <span class="member-avatar" style="background:${color}">${member ? esc(initial(member.name)) : "?"}</span>
           <div style="flex:1; min-width:0;">
-            <div class="lb-name">${member ? esc(member.name) : "Unknown"}</div>
-            <div class="lb-record">W${r.wins} L${r.losses}</div>
+            <div class="lb-name" data-testid="cat-lb-name">${member ? esc(member.name) : "Unknown"}</div>
+            <div class="lb-record" data-testid="cat-lb-record">W${r.wins} L${r.losses}</div>
           </div>
-          <div class="lb-rating">${formatRating(r.rating)}</div>
+          <div class="lb-rating" data-testid="cat-lb-rating">${formatRating(r.rating)}</div>
         </div>
       `;
     }).join("");
@@ -928,18 +928,18 @@ window.openCategoryDetail = async function(categoryId) {
             const sign = delta >= 0 ? "+" : "";
             return `<span class="member-avatar sm" style="background:${color}" title="${m ? esc(m.name) : "?"}">${m ? esc(initial(m.name)) : "?"}</span>
                     <span>${m ? esc(m.name) : "?"}</span>
-                    <span class="match-delta ${delta >= 0 ? "pos" : "neg"}">${sign}${delta}</span>`;
+                    <span class="match-delta ${delta >= 0 ? "pos" : "neg"}" data-testid="match-delta">${sign}${delta}</span>`;
           }).join(", ")}
         </span>`;
       };
 
       return `
-        <div class="match-row">
+        <div class="match-row" data-testid="match-row" data-match-id="${esc(match.id)}">
           <div class="match-teams">
             ${renderTeam(teamA, 0)}
             ${teamB.length ? `<span class="match-vs">vs</span>${renderTeam(teamB, 1)}` : ""}
           </div>
-          <div class="match-result">
+          <div class="match-result" data-testid="match-result">
             <span>${date}</span>
             ${match.notes ? `<span>· ${esc(match.notes)}</span>` : ""}
           </div>
@@ -1005,7 +1005,7 @@ function renderTeamBuilder() {
   chips.innerHTML = members.map(m => {
     const color = memberColor(m.id, members);
     return `
-      <div class="member-chip" id="chip-${esc(m.id)}" data-member-id="${esc(m.id)}">
+      <div class="member-chip" id="chip-${esc(m.id)}" data-testid="member-chip" data-member-id="${esc(m.id)}">
         <span class="member-avatar sm" style="background:${color}">${esc(initial(m.name))}</span>
         <span>${esc(m.name)}</span>
         <span class="chip-label" id="chip-label-${esc(m.id)}"></span>
@@ -1107,14 +1107,14 @@ function renderResultOptions() {
   let html = "";
   if (isCooperative) {
     html = `
-      <button class="result-btn" onclick="selectResult('A')">✅ Won</button>
-      <button class="result-btn" onclick="selectResult('B')">❌ Lost</button>
+      <button class="result-btn" data-testid="result-option" data-side="A" onclick="selectResult('A')">✅ Won</button>
+      <button class="result-btn" data-testid="result-option" data-side="B" onclick="selectResult('B')">❌ Lost</button>
     `;
   } else {
     html = `
-      <button class="result-btn team-a-win" onclick="selectResult('A')">🔵 ${esc(teamANames)} won</button>
-      <button class="result-btn team-b-win" onclick="selectResult('B')">🟡 ${esc(teamBNames)} won</button>
-      <button class="result-btn draw-win" onclick="selectResult('draw')">🤝 Draw</button>
+      <button class="result-btn team-a-win" data-testid="result-option" data-side="A" onclick="selectResult('A')">🔵 ${esc(teamANames)} won</button>
+      <button class="result-btn team-b-win" data-testid="result-option" data-side="B" onclick="selectResult('B')">🟡 ${esc(teamBNames)} won</button>
+      <button class="result-btn draw-win" data-testid="result-option" data-side="draw" onclick="selectResult('draw')">🤝 Draw</button>
     `;
   }
   document.getElementById("result-options").innerHTML = html;

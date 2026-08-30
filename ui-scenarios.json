@@ -1,0 +1,307 @@
+{
+  "scenarios": [
+    {
+      "name": "a 1v1 match recorded through the UI moves both Elo ratings and survives a reload",
+      "members": {
+        "alex": "admin",
+        "sam": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by) VALUES (?, ?, '\ud83c\udfd3', '1v1', datetime('now'), ?)",
+          "params": [
+            "ui-cat-pingpong",
+            "Ping Pong",
+            "{{alex}}"
+          ]
+        },
+        {
+          "action": "open",
+          "as": "alex"
+        },
+        {
+          "action": "click",
+          "as": "alex",
+          "selector": "[data-testid=\"tab-record\"]"
+        },
+        {
+          "action": "waitFor",
+          "as": "alex",
+          "selector": "[data-testid=\"record-step-1\"]"
+        },
+        {
+          "action": "select",
+          "as": "alex",
+          "selector": "[data-testid=\"record-category\"]",
+          "value": "ui-cat-pingpong"
+        },
+        {
+          "action": "click",
+          "as": "alex",
+          "selector": "[data-testid=\"record-step1-next\"]"
+        },
+        {
+          "action": "waitFor",
+          "as": "alex",
+          "selector": "[data-testid=\"record-step-2\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "alex",
+          "selector": "[data-testid=\"member-chip\"]",
+          "count": 2
+        },
+        {
+          "action": "click",
+          "as": "alex",
+          "selector": "[data-testid=\"member-chip\"]:nth-child(1)"
+        },
+        {
+          "action": "click",
+          "as": "alex",
+          "selector": "[data-testid=\"member-chip\"]:nth-child(2)"
+        },
+        {
+          "action": "expectNoText",
+          "as": "alex",
+          "text": "No players selected",
+          "selector": "[data-testid=\"team-a-slots\"]"
+        },
+        {
+          "action": "expectNoText",
+          "as": "alex",
+          "text": "No players selected",
+          "selector": "[data-testid=\"team-b-slots\"]"
+        },
+        {
+          "action": "click",
+          "as": "alex",
+          "selector": "[data-testid=\"record-step2-next\"]"
+        },
+        {
+          "action": "waitFor",
+          "as": "alex",
+          "selector": "[data-testid=\"record-step-3\"]"
+        },
+        {
+          "action": "fill",
+          "as": "alex",
+          "selector": "[data-testid=\"field-notes\"]",
+          "value": "Overtime thriller"
+        },
+        {
+          "action": "click",
+          "as": "alex",
+          "selector": "[data-testid=\"result-option\"][data-side=\"A\"]"
+        },
+        {
+          "action": "click",
+          "as": "alex",
+          "selector": "[data-testid=\"record-submit\"]"
+        },
+        {
+          "action": "waitFor",
+          "as": "alex",
+          "selector": "[data-testid=\"lb-row\"]:nth-child(1)"
+        },
+        {
+          "action": "expectCount",
+          "as": "alex",
+          "selector": "[data-testid=\"lb-row\"]",
+          "count": 2
+        },
+        {
+          "action": "expectText",
+          "as": "alex",
+          "text": "W1 L0",
+          "selector": "[data-testid=\"overall-list\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "alex",
+          "text": "W0 L1",
+          "selector": "[data-testid=\"overall-list\"]"
+        },
+        {
+          "action": "expectVisible",
+          "as": "alex",
+          "selector": "[data-testid=\"champions-card\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "alex",
+          "text": "Ping Pong",
+          "selector": "[data-testid=\"champion-cat\"]"
+        },
+        {
+          "action": "reload",
+          "as": "alex"
+        },
+        {
+          "action": "expectCount",
+          "as": "alex",
+          "selector": "[data-testid=\"lb-row\"]",
+          "count": 2
+        },
+        {
+          "action": "expectText",
+          "as": "alex",
+          "text": "W1 L0",
+          "selector": "[data-testid=\"overall-list\"]"
+        },
+        {
+          "action": "click",
+          "as": "alex",
+          "selector": "[data-testid=\"tab-categories\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "alex",
+          "text": "1 match",
+          "selector": "[data-testid=\"category-card-meta\"]"
+        },
+        {
+          "action": "click",
+          "as": "alex",
+          "selector": "[data-testid=\"category-card\"][data-cat-id=\"ui-cat-pingpong\"]"
+        },
+        {
+          "action": "waitFor",
+          "as": "alex",
+          "selector": "[data-testid=\"cat-lb-row\"]:nth-child(1)"
+        },
+        {
+          "action": "expectCount",
+          "as": "alex",
+          "selector": "[data-testid=\"cat-lb-row\"]",
+          "count": 2
+        },
+        {
+          "action": "expectText",
+          "as": "alex",
+          "text": "W1 L0",
+          "selector": "[data-testid=\"cat-detail-rankings\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "alex",
+          "text": "W0 L1",
+          "selector": "[data-testid=\"cat-detail-rankings\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "alex",
+          "text": "984",
+          "selector": "[data-testid=\"cat-detail-rankings\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "alex",
+          "selector": "[data-testid=\"match-row\"]",
+          "count": 1
+        },
+        {
+          "action": "expectText",
+          "as": "alex",
+          "text": "Overtime thriller",
+          "selector": "[data-testid=\"cat-detail-matches\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "alex",
+          "text": "+16",
+          "selector": "[data-testid=\"cat-detail-matches\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "alex",
+          "text": "-16",
+          "selector": "[data-testid=\"cat-detail-matches\"]"
+        },
+        {
+          "action": "open",
+          "as": "sam"
+        },
+        {
+          "action": "expectCount",
+          "as": "sam",
+          "selector": "[data-testid=\"lb-row\"]",
+          "count": 2
+        },
+        {
+          "action": "expectText",
+          "as": "sam",
+          "text": "W0 L1",
+          "selector": "[data-testid=\"overall-list\"]"
+        }
+      ]
+    },
+    {
+      "name": "a child sees the standings but is offered no way to create a category",
+      "members": {
+        "parent": "adult",
+        "kid": "child"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by) VALUES (?, ?, '\u26bd', 'team', datetime('now'), ?)",
+          "params": [
+            "ui-cat-foosball",
+            "Foosball",
+            "{{parent}}"
+          ]
+        },
+        {
+          "action": "open",
+          "as": "parent"
+        },
+        {
+          "action": "click",
+          "as": "parent",
+          "selector": "[data-testid=\"tab-categories\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "parent",
+          "text": "Foosball",
+          "selector": "[data-testid=\"categories-grid\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "parent",
+          "selector": "[data-testid=\"add-category\"]",
+          "count": 1
+        },
+        {
+          "action": "open",
+          "as": "kid"
+        },
+        {
+          "action": "click",
+          "as": "kid",
+          "selector": "[data-testid=\"tab-categories\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "kid",
+          "text": "Foosball",
+          "selector": "[data-testid=\"categories-grid\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "kid",
+          "selector": "[data-testid=\"category-card\"]",
+          "count": 1
+        },
+        {
+          "action": "expectCount",
+          "as": "kid",
+          "selector": "[data-testid=\"add-category\"]",
+          "count": 0
+        }
+      ]
+    }
+  ]
+}
