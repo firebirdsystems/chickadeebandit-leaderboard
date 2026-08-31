@@ -7,18 +7,27 @@ SELECT
   c.name AS category_name,
   c.icon AS category_icon,
   c.game_type
--- CROSS JOIN is deliberate and is NOT a cartesian product: the ON clause still
--- applies, and in SQLite the only difference from JOIN is that the planner may
--- not reorder the tables. That is exactly what this needs. The ordering leads on
--- c.name, which lives on the categories side, so an index can only supply it if
--- categories is the OUTER loop. Left as a plain JOIN the planner scanned every
--- rating row and sorted the lot in a temp b-tree to return the first 200.
+-- Categories is written FIRST and joined with a comma rather than JOIN ... ON.
+-- Both details matter:
 --
--- Paired with app_leaderboard__lb_categories_name_idx, which supplies c.name in
--- order. Write the tables in this order or the hint does nothing.
-FROM app_leaderboard__lb_categories c
-CROSS JOIN app_leaderboard__lb_ratings r
-  ON r.category_id = c.id
-WHERE r.games_played > 0
+--   * The ordering leads on c.name, which lives on the categories side, so an
+--     index can only supply it when categories is the OUTER loop. Written the
+--     other way round the planner scans every rating row and sorts the lot in a
+--     temp b-tree to return the first 200.
+--   * CROSS JOIN would state that intent outright, but the hub's SQL parser
+--     (node-sql-parser, sqlite dialect) cannot parse CROSS JOIN and rejects the
+--     whole statement with "Could not parse SQL". A comma join is the strongest
+--     form it accepts. This was shipped as a CROSS JOIN once and broke this
+--     export in production - do not reintroduce it.
+--
+-- This is a planner preference, not a guarantee the way CROSS JOIN would be: the
+-- comma operator does not forbid reordering, so a future ANALYZE could flip it
+-- back to a scan. That degrades speed, never correctness.
+--
+-- Paired with app_leaderboard__lb_categories_name_idx.
+FROM app_leaderboard__lb_categories c,
+     app_leaderboard__lb_ratings r
+WHERE r.category_id = c.id
+  AND r.games_played > 0
 ORDER BY c.name, r.rating DESC
 LIMIT 200
