@@ -18,13 +18,17 @@
   },
   "storage": "db",
   "preload": {
-    "lb_matches": {"sql": "SELECT c.*, (SELECT COUNT(*) FROM app_leaderboard__lb_matches m WHERE m.category_id = c.id) as match_count, (SELECT MAX(played_at) FROM app_leaderboard__lb_matches WHERE category_id = c.id) as last_played FROM app_leaderboard__lb_categories c ORDER BY last_played DESC"},
+    "lb_matches": {"sql": "SELECT c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by, COUNT(m.id) AS match_count, MAX(m.played_at) AS last_played FROM app_leaderboard__lb_categories c LEFT JOIN app_leaderboard__lb_matches m ON m.category_id = c.id GROUP BY c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by ORDER BY last_played DESC"},
     "lb_ratings": {"sql": "SELECT * FROM app_leaderboard__lb_ratings"}
   },
   "db_encryption": "off",
     "member_references": {
       "lb_categories": {
         "column": "created_by",
+        "on_removed": "keep"
+      },
+      "lb_matches": {
+        "column": "logged_by",
         "on_removed": "keep"
       },
       "lb_participants": {
@@ -42,6 +46,25 @@
   "row_policies": {
     "lb_categories": {
       "kind": "adult_writable"
+    },
+    "lb_matches": {
+      "kind": "owner_or_visibility",
+      "member_column": "logged_by",
+      "visibility_column": "visibility",
+      "everyone_values": ["everyone"],
+      "column_write_acls": {
+        "logged_by": { "writable_by": [], "actions": ["update"] }
+      },
+      "frozen_when": { "status_column": "played_at", "locked_when_not_null": true }
+    },
+    "lb_participants": {
+      "kind": "member_writable"
+    },
+    "lb_ratings": {
+      "kind": "member_writable"
+    },
+    "lb_sync": {
+      "kind": "member_writable"
     }
   },
   "icon": "🏆",
