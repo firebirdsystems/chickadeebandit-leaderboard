@@ -1,62 +1,25 @@
 // Pure business logic — no DOM, no fetch.
+//
+// SCORING IS NOT HERE. The Elo fold lives in `manifest.write_effects` on
+// lb_matches, as SQL the hub appends to the match INSERT's own transaction:
+// "fold_participant_ratings" fills each participant's rating_before /
+// rating_after, and "fold_ratings" folds them into lb_ratings.
+//
+// It used to live in this file, and it could not stay: every open client
+// ingests events, so two matches read the same starting ratings and computed
+// their movement from the same stale base, and lb_ratings was member_writable,
+// so any member could write themselves a rating outright. Neither is fixable
+// from the browser. A JS copy kept here "for reference" would be a second
+// definition of the same rule, free to drift from the one that actually runs —
+// so there is exactly one, and it is in the manifest.
+//
+// What remains below is DISPLAY logic over ratings already computed.
 
-export const DEFAULT_RATING = 1000;
-export const K_FACTOR = 32;
+// The 1000 a first-time player starts from is NOT declared here. It lives in
+// "fold_participant_ratings" and "fold_ratings" (manifest.write_effects),
+// which are the only things that assign it — a constant in this file would be
+// a second spelling of the same number, free to drift from the one that runs.
 export const MIN_GAMES_FOR_COMPOSITE = 3;
-
-/**
- * Expected win probability for a player/team rated `ratingA` vs `ratingB`.
- */
-export function expectedScore(ratingA, ratingB) {
-  return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
-}
-
-/**
- * Average rating for a team (array of numeric ratings).
- */
-export function teamRating(ratings) {
-  if (!ratings.length) return DEFAULT_RATING;
-  return ratings.reduce((s, r) => s + r, 0) / ratings.length;
-}
-
-/**
- * Compute per-player Elo deltas for a two-sided match.
- *
- * teamA / teamB: Array<{ memberId: string, rating: number }>
- * winningSide: 'A' | 'B' | 'draw'
- * cooperative: both sides treated as winners vs a baseline opponent
- *
- * Returns Array<{ memberId, ratingBefore, delta }>
- */
-export function calcMatchDeltas(teamA, teamB, winningSide, cooperative = false) {
-  if (cooperative) {
-    const baseline = DEFAULT_RATING;
-    const score = winningSide === "A" ? 1 : 0;
-    return [...teamA, ...teamB].map(p => {
-      const delta = Math.round(K_FACTOR * (score - expectedScore(p.rating, baseline)));
-      return { memberId: p.memberId, ratingBefore: p.rating, delta };
-    });
-  }
-
-  const avgA = teamRating(teamA.map(p => p.rating));
-  const avgB = teamRating(teamB.map(p => p.rating));
-
-  const scoreA = winningSide === 'A' ? 1 : winningSide === 'draw' ? 0.5 : 0;
-  const scoreB = 1 - scoreA;
-
-  const deltasA = teamA.map(p => ({
-    memberId: p.memberId,
-    ratingBefore: p.rating,
-    delta: Math.round(K_FACTOR * (scoreA - expectedScore(avgA, avgB))),
-  }));
-  const deltasB = teamB.map(p => ({
-    memberId: p.memberId,
-    ratingBefore: p.rating,
-    delta: Math.round(K_FACTOR * (scoreB - expectedScore(avgB, avgA))),
-  }));
-
-  return [...deltasA, ...deltasB];
-}
 
 /**
  * Composite rating across categories.
@@ -111,19 +74,6 @@ export function categoryChampions(allRatings) {
     }
   }
   return champions;
-}
-
-/**
- * Compute Elo deltas for a free-for-all result (e.g. Quiet Time).
- * Treats the winner as Team A vs. all other ranked players as Team B.
- * Requires at least 2 players. Returns [] for a single-player result.
- *
- * rankedPlayers: Array<{ memberId, rating }> sorted best-first (index 0 = winner)
- */
-export function calcFfaDeltas(rankedPlayers) {
-  if (rankedPlayers.length < 2) return [];
-  const [winner, ...rest] = rankedPlayers;
-  return calcMatchDeltas([winner], rest, "A");
 }
 
 /**

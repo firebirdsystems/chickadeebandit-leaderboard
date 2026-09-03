@@ -100,3 +100,131 @@ describe("007 — the duplicate-category fold", () => {
     expect(code(sql)).not.toMatch(/SUM\(x\.games_played\)/);
   });
 });
+
+describe("008 — the recompute the fold assumes", () => {
+  const sql = sqlOf("008_server_side_elo_backfill.sql");
+
+  it("derives every column from the participant rows", () => {
+    // The same replay-safety argument as 007, for the same reason: a migration
+    // file replays from the top after a partial failure, and this one has no
+    // guard clause of its own. Every value it writes is read out of
+    // lb_participants, so running it twice lands on the numbers running it
+    // once did. An accumulating form would inflate every rating in the
+    // household a little more on each retry, permanently.
+    expect(code(sql)).toMatch(/SUM\(p\.rating_after - p\.rating_before\)/);
+    expect(code(sql)).toMatch(/games_played = \(SELECT COUNT\(\*\)/);
+    expect(code(sql)).not.toMatch(/rating = rating \+/);
+    expect(code(sql)).not.toMatch(/games_played = games_played \+/);
+  });
+
+  it("recomputes from history it has already deduplicated", () => {
+    // Order is the whole point. The recompute counts participant rows, so it
+    // has to run after the duplicates are gone or it counts them; and the
+    // UNIQUE index has to be created after the DELETE or it fails against the
+    // rows that violate it — permanently, since a failed migration is one the
+    // app never gets past.
+    const statements = splitStatements(sql).map(code).filter(s => s.trim());
+    const at = (re) => statements.findIndex(s => re.test(s));
+    const dedup = at(/^\s*DELETE FROM app_leaderboard__lb_participants/);
+    const index = at(/^\s*CREATE UNIQUE INDEX/);
+    const recompute = at(/^\s*UPDATE app_leaderboard__lb_ratings/);
+    expect(dedup, "008 must deduplicate participants").toBeGreaterThan(-1);
+    expect(index).toBeGreaterThan(dedup);
+    expect(recompute).toBeGreaterThan(index);
+  });
+
+  it("removes only participant rows that duplicate an earlier one", () => {
+    // The history the recompute is derived from must otherwise survive
+    // untouched, or the recompute stops being a recompute. The one row this
+    // may drop is a second row for a member already listed in that match —
+    // never a match, a category, or the first row of any pairing.
+    const dedup = splitStatements(sql).map(code)
+      .find(s => /^\s*DELETE FROM/.test(s.trim()));
+    expect(dedup).toMatch(/q\.match_id = app_leaderboard__lb_participants\.match_id/);
+    expect(dedup).toMatch(/q\.member_id = app_leaderboard__lb_participants\.member_id/);
+    expect(dedup, "must keep the earliest row, not an arbitrary one")
+      .toMatch(/q\.rowid < app_leaderboard__lb_participants\.rowid/);
+  });
+
+  it("writes nothing but lb_ratings and the participant dedup", () => {
+    const allowed = /^\s*(UPDATE app_leaderboard__lb_ratings|DELETE FROM app_leaderboard__lb_participants|CREATE UNIQUE INDEX)/;
+    for (const statement of splitStatements(sql).map(code)) {
+      if (!statement.trim()) continue;
+      expect(statement, "008 wrote a table it has no business writing").toMatch(allowed);
+    }
+  });
+});
+
+describe("009 — the table the freeze made necessary", () => {
+  const sql = sqlOf("009_participant_ratings_table.sql");
+
+  it("creates the table and its read index idempotently", () => {
+    // Both must carry IF NOT EXISTS or a replay after a partial failure fails
+    // forever and the app becomes permanently un-updatable.
+    expect(code(sql)).toMatch(/CREATE TABLE IF NOT EXISTS app_leaderboard__lb_participant_ratings/);
+    expect(code(sql)).toMatch(/CREATE INDEX IF NOT EXISTS/);
+  });
+
+  it("backfills from the participant rows without accumulating on replay", () => {
+    // The values are COPIED from the row each one describes, so a second run
+    // writes what the first did; the conflict arm makes it a no-op rather than
+    // a primary-key error.
+    expect(code(sql)).toMatch(/SELECT p\.id, p\.match_id, p\.member_id, p\.rating_before, p\.rating_after/);
+    expect(code(sql)).toMatch(/ON CONFLICT \(participant_id\) DO NOTHING/);
+  });
+
+  it("runs after 008, so it copies deduplicated history", () => {
+    // 008 removes participant rows duplicating an (match_id, member_id) pair.
+    // Backfilling first would carry a duplicate into the new table and leave it
+    // there, since the conflict arm would then refuse to correct it.
+    expect(FILES.indexOf("009_participant_ratings_table.sql"))
+      .toBeGreaterThan(FILES.indexOf("008_server_side_elo_backfill.sql"));
+  });
+
+  it("never writes lb_participants or lb_ratings", () => {
+    // It carries history across; it does not restate it. 008 owns the rating
+    // repair and this file must not have a second opinion about it.
+    for (const statement of splitStatements(sql).map(code)) {
+      if (!statement.trim()) continue;
+      expect(statement).not.toMatch(/^\s*(UPDATE|DELETE FROM) /);
+      expect(statement).not.toMatch(/INSERT INTO app_leaderboard__lb_(participants|ratings)\b/);
+    }
+  });
+});
+
+describe("the build's own migration scan", () => {
+  /**
+   * build.mjs applies these to the RAW file — comments included — and exits
+   * non-zero on a hit. Every other check in this file deliberately asks the
+   * question of `code(sql)` instead, because these migrations explain
+   * themselves at length and a header that quotes a statement it is describing
+   * would trip a naive scan.
+   *
+   * That difference is exactly how a migration whose PROSE mentioned a
+   * forbidden statement passed `npm test` and then failed `node build.mjs` —
+   * the phrase was in a comment explaining why a column could not be removed.
+   * The hub's own validateMigrationSql strips comments first, so the build is
+   * the stricter of the two; it fails closed, which is the safe direction, and
+   * the cost is that prose has to avoid the literal phrases. This test moves
+   * that cost from the build to `npm test`, where it is cheap to notice.
+   *
+   * Kept in sync with build.mjs by hand: 119 app repos carry a copy of that
+   * scanner, so it is not something this file can import.
+   */
+  const FORBIDDEN = [
+    [/\bdrop\s+table\b/i, "DROP TABLE"],
+    [/\bdrop\s+column\b/i, "DROP COLUMN"],
+    [/\brename\s+column\b/i, "RENAME COLUMN"],
+    [/\balter\s+table\b[^;]+\brename\s+to\b/i, "RENAME TABLE"],
+    [/\btruncate\b/i, "TRUNCATE"],
+  ];
+
+  for (const file of FILES) {
+    it(`${file} passes the raw scan the build runs`, () => {
+      const raw = sqlOf(file);
+      for (const [pattern, name] of FORBIDDEN) {
+        expect(pattern.test(raw), `${file} contains "${name}" — in a comment, that still fails the build`).toBe(false);
+      }
+    });
+  }
+});

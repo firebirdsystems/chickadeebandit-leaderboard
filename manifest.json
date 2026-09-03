@@ -1,15 +1,26 @@
 {
   "id": "leaderboard",
-  "contexts": ["household", "shared_space"],
+  "contexts": [
+    "household",
+    "shared_space"
+  ],
   "name": "Leaderboard",
   "version": "1.0.1",
-  "description": "Track wins and ratings across any competition — video games, foosball, board games, and more. Elo-based ratings reward beating stronger opponents and winning with weaker teammates.",
+  "description": "Track wins and ratings across any competition \u2014 video games, foosball, board games, and more. Elo-based ratings reward beating stronger opponents and winning with weaker teammates.",
   "entrypoint": "index.html",
   "runtime": "static",
   "category": "family",
-  "tags": ["game", "competition", "stats", "fun", "family"],
+  "tags": [
+    "game",
+    "competition",
+    "stats",
+    "fun",
+    "family"
+  ],
   "data_access": {
-    "reads": ["family.members"],
+    "reads": [
+      "family.members"
+    ],
     "writes": []
   },
   "permissions": {
@@ -18,28 +29,36 @@
   },
   "storage": "db",
   "preload": {
-    "lb_matches": {"sql": "SELECT c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by, COUNT(m.id) AS match_count, MAX(m.played_at) AS last_played FROM app_leaderboard__lb_categories c LEFT JOIN app_leaderboard__lb_matches m ON m.category_id = c.id GROUP BY c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by ORDER BY last_played DESC"},
-    "lb_ratings": {"sql": "SELECT * FROM app_leaderboard__lb_ratings"}
+    "lb_matches": {
+      "sql": "SELECT c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by, COUNT(m.id) AS match_count, MAX(m.played_at) AS last_played FROM app_leaderboard__lb_categories c LEFT JOIN app_leaderboard__lb_matches m ON m.category_id = c.id GROUP BY c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by ORDER BY last_played DESC"
+    },
+    "lb_ratings": {
+      "sql": "SELECT * FROM app_leaderboard__lb_ratings"
+    }
   },
   "db_encryption": "off",
-    "member_references": {
-      "lb_categories": {
-        "column": "created_by",
-        "on_removed": "keep"
-      },
-      "lb_matches": {
-        "column": "logged_by",
-        "on_removed": "keep"
-      },
-      "lb_participants": {
-        "column": "member_id",
-        "on_removed": "keep"
-      },
-      "lb_ratings": {
-        "column": "member_id",
-        "on_removed": "delete"
-      }
+  "member_references": {
+    "lb_categories": {
+      "column": "created_by",
+      "on_removed": "keep"
     },
+    "lb_matches": {
+      "column": "logged_by",
+      "on_removed": "keep"
+    },
+    "lb_participants": {
+      "column": "member_id",
+      "on_removed": "keep"
+    },
+    "lb_participant_ratings": {
+      "column": "member_id",
+      "on_removed": "keep"
+    },
+    "lb_ratings": {
+      "column": "member_id",
+      "on_removed": "delete"
+    }
+  },
   "resource_limits": {
     "max_db_bytes": 52428800
   },
@@ -51,40 +70,171 @@
       "kind": "owner_or_visibility",
       "member_column": "logged_by",
       "visibility_column": "visibility",
-      "everyone_values": ["everyone"],
+      "everyone_values": [
+        "everyone"
+      ],
       "column_write_acls": {
-        "logged_by": { "writable_by": [], "actions": ["update"] }
+        "logged_by": {
+          "writable_by": [],
+          "actions": [
+            "update"
+          ]
+        }
       },
-      "frozen_when": { "status_column": "played_at", "locked_when_not_null": true }
+      "frozen_when": {
+        "status_column": "played_at",
+        "locked_when_not_null": true
+      }
     },
     "lb_participants": {
-      "kind": "member_writable"
+      "kind": "member_writable",
+      "column_write_acls": {
+        "id": {
+          "writable_by": [],
+          "actions": [
+            "update"
+          ]
+        },
+        "match_id": {
+          "writable_by": [],
+          "actions": [
+            "update"
+          ]
+        },
+        "member_id": {
+          "writable_by": [],
+          "actions": [
+            "update"
+          ]
+        },
+        "team": {
+          "writable_by": [],
+          "actions": [
+            "update"
+          ]
+        },
+        "result": {
+          "writable_by": [],
+          "actions": [
+            "update"
+          ]
+        },
+        "rating_before": {
+          "writable_by": [],
+          "actions": [
+            "update"
+          ]
+        },
+        "rating_after": {
+          "writable_by": [],
+          "actions": [
+            "update"
+          ]
+        }
+      },
+      "frozen_when": {
+        "parent_table": "lb_matches",
+        "fk_column": "match_id",
+        "status_column": "played_at",
+        "locked_when_not_null": true
+      }
     },
     "lb_ratings": {
-      "kind": "member_writable"
+      "kind": "member_writable",
+      "column_write_acls": {
+        "rating": {
+          "writable_by": []
+        },
+        "games_played": {
+          "writable_by": []
+        },
+        "wins": {
+          "writable_by": []
+        },
+        "losses": {
+          "writable_by": []
+        }
+      }
     },
     "lb_sync": {
       "kind": "member_writable"
+    },
+    "lb_participant_ratings": {
+      "kind": "member_writable",
+      "column_write_acls": {
+        "participant_id": {
+          "writable_by": []
+        },
+        "match_id": {
+          "writable_by": []
+        },
+        "member_id": {
+          "writable_by": []
+        },
+        "rating_before": {
+          "writable_by": []
+        },
+        "rating_after": {
+          "writable_by": []
+        }
+      },
+      "frozen_when": {
+        "status_column": "match_id",
+        "locked_when_not_null": true
+      }
     }
   },
-  "icon": "🏆",
-  "publishes": ["leaderboard.match_recorded"],
-  "publish_acls": {
-    "leaderboard.match_recorded": { "require_role": "member" }
+  "write_effects": {
+    "lb_matches": {
+      "insert": [
+        {
+          "label": "fold_participant_ratings",
+          "statement": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) SELECT p.id, p.match_id, p.member_id, COALESCE((SELECT r.rating FROM app_leaderboard__lb_ratings r WHERE r.member_id = p.member_id AND r.category_id = :new.category_id), 1000.0), MAX(100.0, COALESCE((SELECT r.rating FROM app_leaderboard__lb_ratings r WHERE r.member_id = p.member_id AND r.category_id = :new.category_id), 1000.0) + ROUND(32.0 * (CASE p.result WHEN 'win' THEN 1.0 WHEN 'draw' THEN 0.5 ELSE 0.0 END - 1.0 / (1.0 + pow(10.0, (COALESCE((SELECT AVG(COALESCE(r2.rating, 1000.0)) FROM app_leaderboard__lb_participants q LEFT JOIN app_leaderboard__lb_ratings r2 ON r2.member_id = q.member_id AND r2.category_id = :new.category_id WHERE q.match_id = :new.id AND q.team <> p.team AND (SELECT c.game_type FROM app_leaderboard__lb_categories c WHERE c.id = :new.category_id) <> 'cooperative'), 1000.0) - COALESCE((SELECT AVG(COALESCE(r2.rating, 1000.0)) FROM app_leaderboard__lb_participants q LEFT JOIN app_leaderboard__lb_ratings r2 ON r2.member_id = q.member_id AND r2.category_id = :new.category_id WHERE q.match_id = :new.id AND q.team = p.team AND ((SELECT c.game_type FROM app_leaderboard__lb_categories c WHERE c.id = :new.category_id) <> 'cooperative' OR q.member_id = p.member_id)), 1000.0)) / 400.0))))) FROM app_leaderboard__lb_participants p WHERE p.match_id = :new.id"
+        },
+        {
+          "label": "fold_ratings",
+          "statement": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) SELECT lower(hex(randomblob(16))), pr.member_id, :new.category_id, pr.rating_after, 1, CASE WHEN p.result = 'win' THEN 1 ELSE 0 END, CASE WHEN p.result = 'loss' THEN 1 ELSE 0 END FROM app_leaderboard__lb_participant_ratings pr JOIN app_leaderboard__lb_participants p ON p.id = pr.participant_id WHERE pr.match_id = :new.id ON CONFLICT (member_id, category_id) DO UPDATE SET rating = excluded.rating, games_played = games_played + 1, wins = wins + excluded.wins, losses = losses + excluded.losses"
+        }
+      ]
+    }
   },
-  "nav": { "label": "Leaderboard" },
+  "icon": "\ud83c\udfc6",
+  "publishes": [
+    "leaderboard.match_recorded"
+  ],
+  "publish_acls": {
+    "leaderboard.match_recorded": {
+      "require_role": "member"
+    }
+  },
+  "nav": {
+    "label": "Leaderboard"
+  },
   "glance": {
     "source": {
       "kind": "sql",
       "query": "SELECT c.name AS title, printf('%d W - %d L', r.wins, r.losses) AS subtitle, r.member_id AS member_id FROM app_leaderboard__lb_ratings r JOIN app_leaderboard__lb_categories c ON c.id = r.category_id WHERE r.games_played > 0 ORDER BY r.rating DESC LIMIT 3"
     },
-    "display": { "template": "list", "title": "title", "subtitle": "subtitle", "owner": "member_id" }
+    "display": {
+      "template": "list",
+      "title": "title",
+      "subtitle": "subtitle",
+      "owner": "member_id"
+    }
   },
-  "widget": { "label": "Rankings", "size": "medium" },
-  "subscribes_to": ["game.completed"],
+  "widget": {
+    "label": "Rankings",
+    "size": "medium"
+  },
+  "subscribes_to": [
+    "game.completed"
+  ],
   "ai_access": {
     "allowed": true,
     "mode": "read",
-    "db_exports": ["current_standings", "recent_matches"]
+    "db_exports": [
+      "current_standings",
+      "recent_matches"
+    ]
   }
 }

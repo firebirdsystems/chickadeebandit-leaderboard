@@ -498,8 +498,8 @@
 <script type="module">
 import { esc, memberColor, initial } from "/hub-sdk.js";
 import {
-  calcMatchDeltas, calcFfaDeltas, buildOverallRankings, categoryChampions,
-  rankLabel, formatRating, gameTypeLabel, DEFAULT_RATING
+  buildOverallRankings, categoryChampions,
+  rankLabel, formatRating, gameTypeLabel
 } from "./logic.js";
 
 const CONTEXT = window.__CONTEXT_URL ?? "";
@@ -567,22 +567,19 @@ async function db(sql, params = []) {
 // half-updated leaderboard that the UI has no way to repair. D1 runs a batch
 // transactionally, so it lands whole or not at all. Throws on rejection so the
 // caller does not treat a refused batch as applied.
-// /api/db caps a batch at 25 statements. A match costs one match row plus a
-// participant row and a ratings upsert per player, so a match of up to twelve
-// players lands as a single atomic batch; a bigger free-for-all spans batches
-// and loses atomicity only at that boundary — which is where every match was
-// before, at every statement.
+// /api/db caps a batch at 25 CLIENT statements. A match costs one participant
+// row per player plus the match row that closes it; the two ratings statements
+// the hub appends are its own budget (manifest.write_effects), not this one.
 const MAX_BATCH = 25;
-// A whole match must land in ONE transaction: one match row plus two statements
-// per participant (the participant row and the rating upsert). dbBatchAll splits
-// at MAX_BATCH, so 1 + 2N must stay within it — twelve players, not thirteen.
+// A whole match must land in ONE transaction: N participant rows and the match
+// row. dbBatchOnce refuses anything larger, so 1 + N must stay within it.
 //
-// Past that the match is split across two transactions, and a failure in the
-// second leaves the match row and the first twelve ratings committed while the
-// rest are missing. The retry cannot repair it: source_event_id is unique, so
-// the whole event is treated as already imported. A half-recorded match with no
-// way back is worse than a refused one.
-const MAX_MATCH_PARTICIPANTS = Math.floor((MAX_BATCH - 1) / 2);
+// Past that the match is split across two transactions — and now that the match
+// row is what FIRES the rating fold, a split is worse than it was: the first
+// batch would commit participants with nobody to score them, and the second
+// would fold only the players it carried. The retry cannot repair it either:
+// source_event_id is unique, so the whole event reads as already imported.
+const MAX_MATCH_PARTICIPANTS = MAX_BATCH - 1;
 
 async function dbBatch(statements) {
   if (!DB || !statements.length) return [];
@@ -596,55 +593,56 @@ async function dbBatch(statements) {
   return body.results ?? [];
 }
 
-async function dbBatchAll(statements) {
-  for (let i = 0; i < statements.length; i += MAX_BATCH) {
-    await dbBatch(statements.slice(i, i + MAX_BATCH));
+// Every caller below writes exactly ONE match, and a match must land in one
+// transaction: the match row is what fires the rating fold, and the fold scores
+// only the participant rows already committed beside it.
+//
+// This used to split at MAX_BATCH and carry on. Both call sites bound their
+// roster first, so the split was already unreachable — but a split now commits
+// participants nothing will ever score, and source_event_id being unique means
+// the retry reads as "already imported" and never repairs it. Refusing is the
+// only outcome a future caller that forgets the bound can recover from.
+async function dbBatchOnce(statements) {
+  if (statements.length > MAX_BATCH) {
+    throw new Error(`a match needs ${statements.length} statements; /api/db takes ${MAX_BATCH} per transaction`);
   }
+  return dbBatch(statements);
 }
 
-// One statement per player instead of a read-then-INSERT-or-UPDATE pair. Besides
-// halving the batch, it closes a race of its own: two matches whose pre-read
-// both found no rating row for a player each tried to INSERT one, and the
-// second hit UNIQUE (member_id, category_id).
-// The rating is applied as a DELTA, not written as an absolute.
+// RATINGS ARE NO LONGER WRITTEN FROM HERE.
 //
-// Every open client ingests events, so two matches can read the same starting
-// rating and both compute an absolute "after" from it. Writing those absolutes,
-// the last one lands and the other match's Elo change is DISCARDED — while
-// games_played and wins/losses, which were already deltas, counted both. The
-// scoreboard then showed a member who had played two games with only one game's
-// worth of rating movement, and nothing anywhere recorded that a result had been
-// dropped.
+// Elo used to be computed in this file: read every player's rating, compute the
+// deltas in logic.js, write them back. Two failures were inherent to that and
+// neither could be fixed from the browser.
 //
-// Adding both deltas is an approximation of playing the matches in sequence (the
-// second delta was computed against the pre-first rating rather than the
-// post-first one), and that is the honest trade: an Elo value a few points from
-// the strictly-sequential answer, instead of a match that silently never
-// happened. The alternative — a version column with read-compare-retry — buys
-// exactness at the cost of a retry loop in every client for a family scoreboard.
+//  * RACE. processGameEvents() runs in EVERY open client, so two matches read
+//    the same starting rating and both computed an "after" from it. Applying
+//    the movement as a delta stopped one match's result being discarded, but
+//    both deltas were still computed against the same stale base, and the
+//    rating_before/rating_after stored on the participant rows described a
+//    value the leaderboard never actually held.
+//  * FORGERY. lb_ratings was member_writable, so any member could simply write
+//    rating = 9999. No client-side change can close that.
 //
-// The INSERT arm still carries an absolute, because a brand-new rating row has
-// nothing to add to. MAX(100, ...) keeps the floor the client applies.
+// Both are closed by manifest.write_effects on lb_matches: when the match row
+// lands, the hub appends two statements to the SAME transaction, executed with
+// hub authority — "fold_participant_ratings" writes each player's movement into
+// lb_participant_ratings from live in-transaction state, and "fold_ratings"
+// folds the result into lb_ratings. Concurrent matches serialize because SQLite
+// serializes the transactions, and both destination tables are locked to
+// clients by column_write_acls (writable_by: []), which only the effect lane is
+// allowed to bypass.
 //
-// WHAT THIS STILL DOES NOT FIX, and cannot from here: two concurrent matches
-// compute their deltas from the same stale rating, so the result differs from
-// playing them in sequence, and the rating_before/rating_after written on the
-// participant rows describe a value the leaderboard never actually held. They
-// are an honest record of what THAT match calculated, not of the running total.
-// Exact Elo needs the two matches serialized — a read-compare-retry loop, which
-// cannot work here because a conditional UPDATE that matches nothing does not
-// fail its batch (the match row lands, the rating silently does not), or
-// server-side scoring, which a `runtime: "static"` app does not have. The
-// approximation is bounded and self-correcting; the alternative available at
-// this layer is not.
-const RATING_UPSERT = `INSERT INTO app_leaderboard__lb_ratings
-  (id, member_id, category_id, rating, games_played, wins, losses)
-  VALUES (?, ?, ?, ?, 1, ?, ?)
-  ON CONFLICT (member_id, category_id) DO UPDATE SET
-    rating = MAX(100, rating + ?),
-    games_played = games_played + 1,
-    wins = wins + excluded.wins,
-    losses = losses + excluded.losses`;
+// The participant rows themselves are settled the moment the match exists:
+// lb_participants declares frozen_when against its match, so once the match row
+// is there nobody can rewrite a result, reassign a member, delete a player, or
+// add one — which is what stops the stored history drifting away from ratings
+// already computed from it while the match keeps its original logged_by.
+//
+// THE ORDER OF THE BATCH IS THE CONTRACT: participant rows FIRST, the match row
+// LAST. The effects read lb_participants WHERE match_id = :new.id, so a match
+// row written before its participants folds an empty roster — silently, with no
+// error anywhere. Anything that writes a match must keep this order.
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
@@ -661,19 +659,19 @@ async function init() {
 // category_name/category_icon will automatically create a leaderboard category
 // and have its results folded into ratings.
 
-// One match is written as ONE batch: the match row, then a participant row and
-// a ratings write per player. The SELECT-then-INSERT dedup above only narrows
-// the common case — processGameEvents() runs client-side in every member's
-// browser, so two tabs can both find no row. The UNIQUE index on
-// source_event_id (migration 003) is what actually stops the second one; its
-// batch fails as a whole and the event is skipped rather than double-counted.
+// One match is written as ONE batch: a participant row per player, then the
+// match row that closes it and fires the rating fold. The SELECT-then-INSERT
+// dedup above only narrows the common case — processGameEvents() runs
+// client-side in every member's browser, so two tabs can both find no row. The
+// UNIQUE index on source_event_id (migration 003) is what actually stops the
+// second one; its batch fails as a whole — taking the participant rows and the
+// fold with it — and the event is skipped rather than double-counted.
 //
-// Ratings remain read-modify-write for the Elo value itself, which is inherent
-// to Elo — `rating_before` has to come from the pre-read. Two DIFFERENT matches
-// in the same category, processed concurrently, can still order awkwardly; that
-// is a rating-value question, not the correctness bug this closes.
-async function writeMatch({ matchId, categoryId, event, categoryName, deltas, isWinner }) {
-  const statements = [{
+// `players` carries only what the CLIENT is entitled to assert: who played, on
+// which side, and what the result was. The ratings are the hub's to decide.
+async function writeMatch({ matchId, categoryId, event, categoryName, players }) {
+  const statements = participantStatements(matchId, players);
+  statements.push({
     // logged_by is REQUIRED by the row policy and its value is replaced by the
     // hub with the caller's own id, so what is passed here is a placeholder the
     // engine overwrites — it cannot be forged and it cannot be left out.
@@ -685,23 +683,29 @@ async function writeMatch({ matchId, categoryId, event, categoryName, deltas, is
     sql: `INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, notes, source_event_id, source_event_seq, logged_by, visibility)
           VALUES (?, ?, ?, ?, ?, ?, ?, 'everyone')`,
     params: [matchId, categoryId, event.created_at, `Via ${categoryName}`, event.id, Number(event.sequence) || 0, ME?.id ?? ""],
-  }];
-  for (const d of deltas) {
-    const won = isWinner(d);
-    const newRating = Math.max(100, d.ratingBefore + d.delta);
-    statements.push({
-      sql: `INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      params: [crypto.randomUUID(), matchId, d.memberId, won ? 0 : 1, won ? "win" : "loss", d.ratingBefore, newRating],
-    });
-    statements.push({
-      sql: RATING_UPSERT,
-      // Trailing param is the DELTA the conflict arm applies; newRating is the
-      // absolute the insert arm uses for a member with no rating row yet.
-      params: [crypto.randomUUID(), d.memberId, categoryId, newRating, won ? 1 : 0, won ? 0 : 1, d.delta],
-    });
-  }
-  await dbBatchAll(statements);
+  });
+  await dbBatchOnce(statements);
+}
+
+// The participant rows for one match, in the order the effects require: every
+// one of them BEFORE the match row that triggers the fold.
+//
+// rating_before/rating_after are sent as zeroes and stay zero forever. They are
+// VESTIGIAL: the rating movement lives in lb_participant_ratings, which the
+// fold writes and no client may touch (migration 009). These two columns are
+// NOT NULL with no default, so a client INSERT still has to name them, and
+// DROP COLUMN is refused at admission — so they cannot be removed, only
+// ignored. Nothing reads them.
+//
+// The number a caller puts here therefore decides nothing. What used to make
+// that true was an effect overwriting them; what makes it true now is that the
+// column is dead.
+function participantStatements(matchId, players) {
+  return players.map((p) => ({
+    sql: `INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after)
+          VALUES (?, ?, ?, ?, ?, 0, 0)`,
+    params: [crypto.randomUUID(), matchId, p.memberId, p.team, p.result],
+  }));
 }
 
 // The hub rejects — never clamps — a limit above this, and the caller below
@@ -764,23 +768,67 @@ const EVENT_CURSOR_KEY = "event_cursor";
 // The cursor is (epoch, sequence) and both live in ONE ROW. A sequence number
 // is meaningless without the generation it was issued in, so they are read and
 // written together — see the guard in writeEventCursor.
+// A stored cursor number is only USABLE if it is a non-negative safe integer.
+// lb_sync is member_writable, so `value` and `epoch` can hold -1, 1e300, a
+// fraction, or text — and `Number(x) || 0` passes every one of those through
+// except the ones that happen to be falsy.
+//
+// A single bad number takes ingestion down for the whole household. The hub
+// answers a negative or non-integer `after_sequence` with a 400, and the fetch
+// below returns on ANY non-2xx — before it reads the epoch header, so both
+// reset paths sit behind the early return and neither can run. The cursor
+// stays bad, and every launch repeats the same 400.
+//
+// So an unusable number reads as 0 AND is reported as unusable, which makes the
+// caller repair the row once the hub has named the current epoch. Reading it as
+// 0 alone would not be enough: the guarded write compares against the STORED
+// value, so a poisoned 1e300 would refuse every advance and the app would
+// re-read the whole backlog from the floor on every launch, forever.
+function usableCursorNumber(value) {
+  // Screened before Number(): both columns are INTEGER NOT NULL, but INTEGER is
+  // an AFFINITY in SQLite, not a constraint — 'abc', 1.5 and 1e300 all store as
+  // written — and Number(null) / Number("") are 0, which would read as a
+  // legitimate floor position. It is not one: the guarded write compares
+  // `excluded.value > lb_sync.value`, and a comparison against NULL is NULL,
+  // so the cursor could never advance again.
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isSafeInteger(n) && n >= 0 ? n : null;
+}
+
 async function readEventCursor() {
   try {
     const { rows } = await db(
       `SELECT value, epoch FROM app_leaderboard__lb_sync WHERE key = ?`, [EVENT_CURSOR_KEY]
     );
+    // No row yet is the ordinary first run, not damage: (0, 0) is exactly right
+    // and the epoch check below writes the row on this pass anyway.
+    if (!rows?.[0]) return { sequence: 0, epoch: 0, usable: true };
+    const sequence = usableCursorNumber(rows[0].value);
+    const epoch = usableCursorNumber(rows[0].epoch);
     return {
-      sequence: Number(rows?.[0]?.value) || 0,
-      epoch: Number(rows?.[0]?.epoch) || 0,
+      sequence: sequence ?? 0,
+      epoch: epoch ?? 0,
+      usable: sequence !== null && epoch !== null,
     };
-  } catch { return { sequence: 0, epoch: 0 }; }
+  // A cursor we could not READ is not a cursor we know to be damaged — treat
+  // this pass as a floor read and leave the row alone.
+  } catch { return { sequence: 0, epoch: 0, usable: true }; }
 }
 
 // Force the cursor to the floor of the CURRENT generation, ignoring the guard.
-// The only caller is the rowid-reuse detector, which has the one piece of
-// evidence that justifies it: a page that came back at or below the sequence it
-// asked past. See the note at that call site for why this cannot be the guarded
-// write and must not be reachable from anywhere else.
+//
+// Two callers, and both hold evidence that the stored cursor no longer means
+// anything — which is the only thing that justifies bypassing the guard:
+//
+//  * the epoch-mismatch branch, where the hub has just named a generation
+//    different from the stored one;
+//  * the rowid-reuse detector, which saw a page come back at or below the
+//    sequence it asked past.
+//
+// Neither may use the guarded write: the guard compares against the stored
+// value, and in both cases the stored value is the thing being discarded. See
+// each call site.
 async function resetEventCursor(epoch) {
   try {
     await db(
@@ -853,7 +901,7 @@ async function processGameEvents() {
     // first page deduped entirely, wrote nothing, left the cursor at 0, and the
     // same 500 events were re-read until the runaway guard tripped. Ingestion
     // stalled permanently and silently. See migration 006.
-    const { sequence: afterSequence, epoch: storedEpochRead } = await readEventCursor();
+    const { sequence: afterSequence, epoch: storedEpochRead, usable: cursorUsable } = await readEventCursor();
     let storedEpoch = storedEpochRead;
     let epoch = storedEpoch;
 
@@ -878,8 +926,26 @@ async function processGameEvents() {
       events = await res.json();
     } catch { return; }
 
-    if (epoch !== storedEpoch) {
-      await writeEventCursor(0, epoch);
+    if (epoch !== storedEpoch || !cursorUsable) {
+      // FORCED, not guarded. A different epoch means the stored cursor is not
+      // stale but MEANINGLESS, so there is no sense in which the stored value
+      // could be "ahead" of what we are about to write — and the guarded write
+      // loses whenever the stored epoch is the larger number. That is not a
+      // theoretical ordering: lb_sync is member_writable, so a member can
+      // store an epoch above anything the hub will ever report, and every
+      // subsequent pass would then read the poisoned cursor, fail to correct
+      // it (the guard refuses), and `continue` into the same state — ingestion
+      // stalled for the whole household until the row was repaired by hand.
+      // Forcing it here is safe for the reason the guard exists: the hazard is
+      // an OLD generation's high sequence beating a reset, and this writes the
+      // generation the hub just named, from the response in hand.
+      //
+      // `!cursorUsable` joins the same branch for the same reason: a stored
+      // number that is not a position cannot be compared against, so the only
+      // way back is to overwrite it. Reaching here at all means the fetch
+      // SUCCEEDED, which it does because readEventCursor substituted 0 for the
+      // unusable value rather than sending it.
+      await resetEventCursor(epoch);
       storedEpoch = epoch;
       // Re-ask from the floor rather than processing a page fetched against the
       // old cursor: under the new numbering that page is an arbitrary slice.
@@ -998,21 +1064,14 @@ async function processGameEvents() {
       if (game_type === "1v1") {
         if (!winner_id || !loser_id) { handled = Math.max(handled, seq); continue; }   // permanent
 
-        const { rows: existingRatings } = await db(
-          `SELECT * FROM app_leaderboard__lb_ratings WHERE category_id = ? AND member_id IN (?, ?)`,
-          [categoryId, winner_id, loser_id]
-        );
-        const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
-        const getRating = (id) => ratingMap.get(id)?.rating ?? DEFAULT_RATING;
-
-        const teamA = [{ memberId: winner_id, rating: getRating(winner_id) }];
-        const teamB = [{ memberId: loser_id,  rating: getRating(loser_id)  }];
-        const deltas = calcMatchDeltas(teamA, teamB, "A");
-
+        // No ratings pre-read: the fold computes every rating in-transaction.
         try {
           await writeMatch({
             matchId: crypto.randomUUID(), categoryId, event, categoryName: category_name,
-            deltas, isWinner: (d) => d.memberId === winner_id,
+            players: [
+              { memberId: winner_id, team: 0, result: "win" },
+              { memberId: loser_id,  team: 1, result: "loss" },
+            ],
           });
           handled = Math.max(handled, seq);
         } catch { stopped = true; break; }   // transient: cursor stays put, retried next page/launch
@@ -1020,23 +1079,19 @@ async function processGameEvents() {
       } else if (game_type === "ranked") {
         if (!Array.isArray(results) || results.length < 2) { handled = Math.max(handled, seq); continue; }   // permanent
 
+        // A free-for-all is scored as the winner (team 0) against everyone else
+        // (team 1) — the shape calcFfaDeltas used to build in the browser, now
+        // expressed by the team column the fold reads. isScorableGame() has
+        // already required distinct ids and distinct finite ranks, so index 0
+        // after the sort is the winner and nothing here has to guess.
         const ranked = [...results].sort((a, b) => a.rank - b.rank);
-        const memberIds = ranked.map(r => r.member_id);
-        const placeholders = memberIds.map(() => "?").join(",");
-        const { rows: existingRatings } = await db(
-          `SELECT * FROM app_leaderboard__lb_ratings WHERE category_id = ? AND member_id IN (${placeholders})`,
-          [categoryId, ...memberIds]
-        );
-        const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
-        const getRating = (id) => ratingMap.get(id)?.rating ?? DEFAULT_RATING;
-
-        const rankedPlayers = ranked.map(r => ({ memberId: r.member_id, rating: getRating(r.member_id) }));
-        const deltas = calcFfaDeltas(rankedPlayers);
 
         try {
           await writeMatch({
             matchId: crypto.randomUUID(), categoryId, event, categoryName: category_name,
-            deltas, isWinner: (d) => d.memberId === rankedPlayers[0].memberId,
+            players: ranked.map((r, i) => ({
+              memberId: r.member_id, team: i === 0 ? 0 : 1, result: i === 0 ? "win" : "loss",
+            })),
           });
           handled = Math.max(handled, seq);
         } catch { stopped = true; break; }   // transient: cursor stays put, retried next page/launch
@@ -1252,10 +1307,21 @@ window.openCategoryDetail = async function(categoryId) {
   // directly keeps the read bounded to the same 20-match window (a JOIN could
   // not have inherited that LIMIT and would have pulled the category's entire
   // history), and 20 placeholders sit far under the runtime's 100-parameter cap.
+  //
+  // The rating movement is JOINed from lb_participant_ratings, which is where
+  // the fold writes it (migration 009). lb_participants still carries
+  // rating_before/rating_after columns, but they hold the zeroes the client
+  // sent and nothing maintains them — reading those would render every match
+  // as a 0-point game. LEFT, so a match whose movement predates the table (or
+  // was never folded) still lists its players instead of vanishing.
   const matchIds = matches.map((m) => m.id);
   const { rows: participants } = matchIds.length
     ? await db(
-        `SELECT * FROM app_leaderboard__lb_participants WHERE match_id IN (${matchIds.map(() => "?").join(",")})`,
+        `SELECT p.id, p.match_id, p.member_id, p.team, p.result,
+                pr.rating_before AS fold_rating_before, pr.rating_after AS fold_rating_after
+           FROM app_leaderboard__lb_participants p
+           LEFT JOIN app_leaderboard__lb_participant_ratings pr ON pr.participant_id = p.id
+          WHERE p.match_id IN (${matchIds.map(() => "?").join(",")})`,
         matchIds,
       )
     : { rows: [] };
@@ -1301,11 +1367,20 @@ window.openCategoryDetail = async function(categoryId) {
           ${team.map(p => {
             const m = members.find(mm => mm.id === p.member_id);
             const color = m ? memberColor(p.member_id, members) : "#9ca3af";
-            const delta = p.rating_after - p.rating_before;
+            // Null for a row the fold never wrote — rendered as no movement
+            // rather than as a fabricated 0-to-0 swing.
+            const delta = p.fold_rating_after == null || p.fold_rating_before == null
+              ? null
+              : p.fold_rating_after - p.fold_rating_before;
             const sign = delta >= 0 ? "+" : "";
+            // An unfolded row shows the player and no number. Printing "+null"
+            // is what the old `p.rating_after - p.rating_before` would do here.
+            const deltaEl = delta == null
+              ? ""
+              : `<span class="match-delta ${delta >= 0 ? "pos" : "neg"}" data-testid="match-delta">${sign}${delta}</span>`;
             return `<span class="member-avatar sm" style="background:${color}" title="${m ? esc(m.name) : "?"}">${m ? esc(initial(m.name)) : "?"}</span>
                     <span>${m ? esc(m.name) : "?"}</span>
-                    <span class="match-delta ${delta >= 0 ? "pos" : "neg"}" data-testid="match-delta">${sign}${delta}</span>`;
+                    ${deltaEl}`;
           }).join(", ")}
         </span>`;
       };
@@ -1399,8 +1474,8 @@ window.toggleMemberTeam = function(memberId) {
   const { gameType, teamA, teamB } = recordState;
   const isCooperative = gameType === "cooperative";
 
-  // A match is written as one match row plus two statements per player and must
-  // land in a single transaction, so its roster is bounded — see
+  // A match is written as one participant row per player plus the match row,
+  // and must land in a single transaction, so its roster is bounded — see
   // MAX_MATCH_PARTICIPANTS. 1v1 is capped at two by the branches below, but
   // cooperative and team games take everyone offered, and a household or a
   // shared space can hold more members than one batch. Refusing the pick here
@@ -1530,12 +1605,16 @@ window.submitMatch = async function() {
     const notes = document.getElementById("record-notes").value.trim();
 
     // The batch invariant, asserted where the batch is actually built rather
-    // than only where the roster is picked: 1 + 2N statements have to fit in
-    // one transaction. The imported path enforces the same ceiling in
-    // isScorableGame(). Past it dbBatchAll splits, and a failure in the second
-    // half leaves a match row with some of its players and some of their
-    // ratings committed — a state the UI has no way to repair.
-    const allIds = [...new Set([...teamA, ...teamB])];
+    // than only where the roster is picked: 1 + N statements have to fit in one
+    // transaction. The imported path enforces the same ceiling in
+    // isScorableGame(). Past it dbBatchOnce refuses the write outright, rather
+    // than splitting so the match row — which is what fires the rating fold —
+    // lands in a different transaction from the participants it must score.
+    //
+    // Cooperative games have no second side: the picker only ever fills teamA,
+    // and the old scoring path likewise built its deltas from teamA alone. Say
+    // so here rather than relying on teamB happening to be empty.
+    const allIds = [...new Set(isCooperative ? teamA : [...teamA, ...teamB])];
     if (allIds.length > MAX_MATCH_PARTICIPANTS) {
       showToast(`A match can hold at most ${MAX_MATCH_PARTICIPANTS} players.`);
       btn.disabled = false;
@@ -1543,71 +1622,45 @@ window.submitMatch = async function() {
       return;
     }
 
-    // Load current ratings for all participants
-    const placeholders = allIds.map(() => "?").join(",");
-    const { rows: existingRatings } = await db(
-      `SELECT * FROM app_leaderboard__lb_ratings WHERE category_id = ? AND member_id IN (${placeholders})`,
-      [categoryId, ...allIds]
-    );
-    const ratingMap = new Map(existingRatings.map(r => [r.member_id, r]));
+    // Side and outcome — the whole of what this client is entitled to assert.
+    // No ratings are read and none are written: "fold_participant_ratings" and
+    // "fold_ratings" (manifest.write_effects) compute both from live state when
+    // the match row lands, in the same transaction.
+    const players = allIds.map(id => {
+      const isA = isCooperative || teamA.includes(id);
+      const result = isCooperative
+        ? (winningSide === "A" ? "win" : "loss")
+        : winningSide === "draw" ? "draw" : (isA === (winningSide === "A")) ? "win" : "loss";
+      return { memberId: id, team: isA ? 0 : 1, result };
+    });
 
-    const getRating = (id) => ratingMap.get(id)?.rating ?? DEFAULT_RATING;
-
-    const teamAData = teamA.map(id => ({ memberId: id, rating: getRating(id) }));
-    const teamBData = isCooperative ? [] : teamB.map(id => ({ memberId: id, rating: getRating(id) }));
-
-    const deltas = calcMatchDeltas(teamAData, teamBData, winningSide, isCooperative);
-
-    // Match, participants and ratings in one transactional batch. These were
-    // issued as independent requests (and fanned out with Promise.all), so a
-    // failure on any one of them left a match whose participant list and
-    // ratings disagreed, with no repair path in the UI.
+    // Participants and the match row in one transactional batch, PARTICIPANTS
+    // FIRST — the effects fold whatever participant rows the match id already
+    // has, so a match row written ahead of them would score an empty roster.
+    // (These were once independent requests fanned out with Promise.all, which
+    // left matches whose participant list and ratings disagreed.)
     const matchId = crypto.randomUUID();
     const now = new Date().toISOString();
-    const statements = [{
+    const statements = participantStatements(matchId, players);
+    statements.push({
       // Who typed this in. The value below is a placeholder: the row policy
       // makes logged_by mandatory and overwrites it server-side with the
       // caller's id, so a fabricated match carries the fabricator's name whether
       // they like it or not. See migration 006.
       sql: `INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, notes, logged_by, visibility) VALUES (?, ?, ?, ?, ?, 'everyone')`,
       params: [matchId, categoryId, now, notes || null, ME?.id ?? ""],
-    }];
-    for (const d of deltas) {
-      const isA = teamA.includes(d.memberId);
-      const team = isA ? 0 : 1;
-
-      let result;
-      if (isCooperative) result = winningSide === "A" ? "win" : "loss";
-      else result = winningSide === "draw" ? "draw" : (isA === (winningSide === "A")) ? "win" : "loss";
-
-      const newRating = Math.max(100, d.ratingBefore + d.delta);
-      const isWin = result === "win" ? 1 : 0;
-      const isLoss = result === "loss" ? 1 : 0;
-
-      statements.push({
-        sql: `INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after)
-              VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        params: [crypto.randomUUID(), matchId, d.memberId, team, result, d.ratingBefore, newRating],
-      });
-      statements.push({
-        sql: RATING_UPSERT,
-        // See writeMatch: trailing param is the delta for the conflict arm.
-        params: [crypto.randomUUID(), d.memberId, categoryId, newRating, isWin, isLoss, d.delta],
-      });
-    }
-    await dbBatchAll(statements);
+    });
+    await dbBatchOnce(statements);
 
     // winner_member_id is set only when the win belongs to exactly one person.
     // A team result has several winners and the payload has no way to say so,
     // and a rule like "award points to the winner" must not silently pick one
     // of them; downstream rules should skip the event when this is null.
-    const winners = deltas.filter(d => (
-      isCooperative ? winningSide === "A" : teamA.includes(d.memberId) === (winningSide === "A")
-    ));
+    const winners = players.filter(p => p.result === "win");
     await publishEvent("leaderboard.match_recorded", matchId, {
       category_id: categoryId,
       winning_side: winningSide,
-      player_count: deltas.length,
+      player_count: players.length,
       winner_member_id: winners.length === 1 && winningSide !== "draw" ? winners[0].memberId : null,
     });
 
