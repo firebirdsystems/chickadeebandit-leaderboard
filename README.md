@@ -1,5 +1,7 @@
 # Leaderboard
 
+A [Chickadee Bandit](https://chickadeebandit.com/app-library/leaderboard) app.
+
 A Chickadee Bandit hub app for tracking wins and ratings across any household competition — video games, foosball, board games, darts, and more.
 
 ## Features
