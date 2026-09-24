@@ -1,0 +1,320 @@
+{
+  "scenarios": [
+    {
+      "name": "recording a match scores it on the hub, and the results are frozen once the match row exists",
+      "members": {
+        "alice": "adult",
+        "bob": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by) VALUES ('cat1', 'Foosball', '⚽', '1v1', '2026-01-01T00:00:00Z', ?)",
+          "params": [
+            "{{alice}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "alice",
+          "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, 'm1', ?, 1, 'win', 0, 0)",
+          "params": [
+            "pa",
+            "{{alice}}"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "alice",
+          "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, 'm1', ?, 2, 'loss', 0, 0)",
+          "params": [
+            "pb",
+            "{{bob}}"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "alice",
+          "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by) VALUES ('m1', 'cat1', '2026-01-02T00:00:00Z', ?)",
+          "params": [
+            "{{alice}}"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "bob",
+          "sql": "SELECT member_id, rating, games_played, wins, losses FROM app_leaderboard__lb_ratings WHERE member_id = ?",
+          "params": [
+            "{{alice}}"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "rating": 1016,
+                "games_played": 1,
+                "wins": 1,
+                "losses": 0
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "bob",
+          "sql": "SELECT member_id, rating, games_played, wins, losses FROM app_leaderboard__lb_ratings WHERE member_id = ?",
+          "params": [
+            "{{bob}}"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "rating": 984,
+                "games_played": 1,
+                "wins": 0,
+                "losses": 1
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "bob",
+          "sql": "SELECT participant_id, rating_before, rating_after FROM app_leaderboard__lb_participant_ratings",
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              {
+                "participant_id": "pa",
+                "rating_before": 1000,
+                "rating_after": 1016
+              },
+              {
+                "participant_id": "pb",
+                "rating_before": 1000,
+                "rating_after": 984
+              }
+            ]
+          }
+        },
+        {
+          "action": "named",
+          "as": "bob",
+          "kind": "query",
+          "name": "current_standings",
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              {
+                "rating": 1016,
+                "wins": 1,
+                "category_name": "Foosball"
+              },
+              {
+                "rating": 984,
+                "losses": 1
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "bob",
+          "sql": "UPDATE app_leaderboard__lb_participants SET result = 'win' WHERE id = 'pb'",
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "bob",
+          "sql": "DELETE FROM app_leaderboard__lb_participants WHERE id = 'pb'"
+        },
+        {
+          "action": "db",
+          "as": "bob",
+          "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES ('pc', 'm1', 'someone-else', 2, 'win', 0, 0)",
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "alice",
+          "sql": "SELECT id, member_id, result FROM app_leaderboard__lb_participants ORDER BY id",
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              {
+                "id": "pa",
+                "result": "win"
+              },
+              {
+                "id": "pb",
+                "result": "loss"
+              }
+            ]
+          }
+        },
+        {
+          "action": "named",
+          "as": "alice",
+          "kind": "query",
+          "name": "recent_matches",
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              {
+                "match_id": "m1",
+                "result": "win",
+                "category_name": "Foosball"
+              },
+              {
+                "match_id": "m1",
+                "result": "loss"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "no member can write their own rating or W/L record directly",
+      "members": {
+        "player": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, game_type, created_at) VALUES ('cat1', 'Darts', '1v1', '2026-01-01T00:00:00Z')"
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES ('r1', ?, 'cat1', 1000, 3, 1, 2)",
+          "params": [
+            "{{player}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "player",
+          "sql": "UPDATE app_leaderboard__lb_ratings SET rating = 3000 WHERE id = 'r1'",
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "player",
+          "sql": "UPDATE app_leaderboard__lb_ratings SET wins = 99, losses = 0 WHERE id = 'r1'",
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "player",
+          "sql": "SELECT id, rating, wins, losses FROM app_leaderboard__lb_ratings",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "id": "r1",
+                "rating": 1000,
+                "wins": 1,
+                "losses": 2
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "categories are adult-managed and unique per name and game type",
+      "members": {
+        "parent": "adult",
+        "kid": "child"
+      },
+      "steps": [
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, game_type, created_at, created_by) VALUES ('c_kid', 'Mario Kart', '1v1', '2026-01-01T00:00:00Z', ?)",
+          "params": [
+            "{{kid}}"
+          ],
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "parent",
+          "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, game_type, created_at, created_by) VALUES ('c1', 'Mario Kart', '1v1', '2026-01-01T00:00:00Z', ?)",
+          "params": [
+            "{{parent}}"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "parent",
+          "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, game_type, created_at, created_by) VALUES ('c2', 'Mario Kart', '1v1', '2026-01-02T00:00:00Z', ?)",
+          "params": [
+            "{{parent}}"
+          ],
+          "expect": {
+            "status": 400
+          }
+        },
+        {
+          "action": "db",
+          "as": "parent",
+          "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, game_type, created_at, created_by) VALUES ('c3', 'Mario Kart', 'teams', '2026-01-02T00:00:00Z', ?)",
+          "params": [
+            "{{parent}}"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_leaderboard__lb_categories ORDER BY id",
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              {
+                "id": "c1"
+              },
+              {
+                "id": "c3"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
