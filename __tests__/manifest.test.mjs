@@ -112,8 +112,11 @@ if (manifest.ai_access) {
 // so a refusal there is a failed release; these keep the app's own promises
 // checkable on `make test`.
 describe("write_effects — server-side Elo", () => {
-  const effects = manifest.write_effects?.lb_matches?.insert ?? [];
-  const byLabel = Object.fromEntries(effects.map(e => [e.label, e.statement]));
+  const allEffects = manifest.write_effects?.lb_matches?.insert ?? [];
+  const byLabel = Object.fromEntries(allEffects.map(e => [e.label, e.statement]));
+  // The two folds. "expand_participants" runs ahead of them and has its own
+  // rules below; import-effect.test.mjs runs all three for real.
+  const effects = allEffects.filter(e => e.label !== "expand_participants");
 
   it("settles a participant row the moment its match exists", () => {
     // The freeze is what makes a participant row evidence rather than a note
@@ -126,6 +129,62 @@ describe("write_effects — server-side Elo", () => {
     expect(frozen?.fk_column).toBe("match_id");
     expect(frozen?.status_column).toBe("played_at");
     expect(frozen?.locked_when_not_null).toBe(true);
+  });
+
+  it("expands an imported roster only under the match that fired it", () => {
+    // lb_participants is frozen against its match, and admission lets an
+    // effect insert there ONLY when the rows are born with that match: the fk
+    // bound to exactly :new.id. The hub refuses anything else at publish.
+    const expand = byLabel.expand_participants;
+    expect(expand).toMatch(/^INSERT INTO app_leaderboard__lb_participants \(id, match_id,/);
+    expect(expand).toMatch(/SELECT lower\(hex\(randomblob\(16\)\)\), :new\.id,/);
+    // Inert on a match logged by hand, whose participants the client wrote.
+    expect(expand).toMatch(/ELSE '\[\]' END/);
+  });
+
+  it("binds nothing from the new row but its id", () => {
+    // The hub resolves every :new.<col> from the triggering INSERT's column
+    // list and refuses an INSERT that leaves one out. A hand-logged match does
+    // not name the import columns, so the expansion reads them back from the
+    // row by id instead; binding :new.import_* would refuse every manual match.
+    const bound = new Set([...byLabel.expand_participants.matchAll(/:new\.([a-z_]+)/g)].map(m => m[1]));
+    expect([...bound]).toEqual(["id"]);
+  });
+
+  it("locks the import columns against every client write", () => {
+    // Only the automation lane (trusted, row policies audit-only) fills them.
+    // A client that could set them would have the effect write participants
+    // with hub authority, past the parent freeze.
+    for (const column of ["import_results_json", "import_winner_id", "import_loser_id"]) {
+      const cfg = manifest.row_policies?.lb_matches?.column_write_acls?.[column];
+      expect(cfg?.writable_by, `lb_matches.${column}`).toEqual([]);
+      expect(cfg?.actions, `lb_matches.${column} must be locked on INSERT too`).toBeUndefined();
+    }
+  });
+
+  it("imports each game shape through its own action, whose params the hub checks before any write", () => {
+    // A household admin can point a rule of their own at these actions with
+    // any param map, and the trigger's catalog schema does not check that. A
+    // missing rank scored every player a loss, and a missing loser failed
+    // after the category insert had committed. The hub now skips such a run
+    // up front: both 1v1 players are required, and every ranked element
+    // must name a distinct member and a distinct whole-number rank.
+    const actions = manifest.automation_actions;
+    expect(Object.keys(actions).sort()).toEqual(["import_1v1_game", "import_ranked_game"]);
+    expect(actions.import_1v1_game.params.winner_id).toMatchObject({ type: "member", required: true });
+    expect(actions.import_1v1_game.params.loser_id).toMatchObject({ type: "member", required: true });
+    expect(actions.import_1v1_game.params.results).toBeUndefined();
+    expect(actions.import_ranked_game.params.results).toMatchObject({
+      type: "json", required: true, items: { member_id: "member", rank: "integer" },
+    });
+    expect(actions.import_ranked_game.params.winner_id).toBeUndefined();
+    for (const [id, gameType] of [["import_1v1_game", "1v1"], ["import_ranked_game", "ranked"]]) {
+      const [create, lookup] = actions[id].steps;
+      expect(create.values.game_type, id).toBe(gameType);
+      expect(lookup.where.game_type, id).toBe(gameType);
+    }
+    const bySource = Object.fromEntries(manifest.suggested_automations.map(s => [s.trigger_app_id, s.action_id]));
+    expect(bySource).toEqual({ "sea-battle": "import_1v1_game", "quiet-time": "import_ranked_game" });
   });
 
   it("keeps the fold off lb_participants so the freeze is declarable at all", () => {

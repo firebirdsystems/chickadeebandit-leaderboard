@@ -33,11 +33,13 @@ function batchBuilders() {
 }
 
 describe("a match batch puts its participants before the match row", () => {
-  it("has exactly the two writers this app is known to have", () => {
-    // writeMatch (imported game.completed events) and submitMatch (the form).
-    // A third would need the same order and should fail here until it is read.
-    expect(batchBuilders().length).toBe(2);
-    expect(SRC.split(MATCH_INSERT).length - 1).toBe(2);
+  it("has exactly the one writer this app is known to have", () => {
+    // submitMatch (the form). Imported games are written by the hub's
+    // automation lane, whose roster the "expand_participants" effect writes
+    // (see import-effect.test.mjs). A second browser writer would need the
+    // same order and should fail here until it is read.
+    expect(batchBuilders().length).toBe(1);
+    expect(SRC.split(MATCH_INSERT).length - 1).toBe(1);
   });
 
   it("seeds every batch from participantStatements(), never the match row", () => {

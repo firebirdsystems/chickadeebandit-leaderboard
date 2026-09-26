@@ -548,9 +548,9 @@ async function db(sql, params = []) {
   });
   // A refused write is not data. This used to return res.json() whatever the
   // status, so a 403 read as a successful call with no rows — and the caller
-  // carried on. ensureCategory() was the sharp edge: categories are
-  // adult_writable, so a child's implicit category INSERT is rejected, yet the
-  // function still returned the id it had generated and the match rows that
+  // carried on. Creating a category on the fly was the sharp edge: categories
+  // are adult_writable, so a child's implicit category INSERT is rejected, yet
+  // the caller still used the id it had generated and the match rows that
   // followed referenced a category that was never created. The schema has no
   // foreign keys, so nothing downstream noticed; the household simply had
   // matches and ratings attached to nothing, invisible in every category view.
@@ -577,8 +577,7 @@ const MAX_BATCH = 25;
 // Past that the match is split across two transactions — and now that the match
 // row is what FIRES the rating fold, a split is worse than it was: the first
 // batch would commit participants with nobody to score them, and the second
-// would fold only the players it carried. The retry cannot repair it either:
-// source_event_id is unique, so the whole event reads as already imported.
+// would fold only the players it carried, and nothing retries the missing half.
 const MAX_MATCH_PARTICIPANTS = MAX_BATCH - 1;
 
 async function dbBatch(statements) {
@@ -597,11 +596,10 @@ async function dbBatch(statements) {
 // transaction: the match row is what fires the rating fold, and the fold scores
 // only the participant rows already committed beside it.
 //
-// This used to split at MAX_BATCH and carry on. Both call sites bound their
-// roster first, so the split was already unreachable — but a split now commits
-// participants nothing will ever score, and source_event_id being unique means
-// the retry reads as "already imported" and never repairs it. Refusing is the
-// only outcome a future caller that forgets the bound can recover from.
+// This used to split at MAX_BATCH and carry on. The caller bounds its roster
+// first, so the split was already unreachable — but a split now commits
+// participants nothing will ever score. Refusing is the only outcome a future
+// caller that forgets the bound can recover from.
 async function dbBatchOnce(statements) {
   if (statements.length > MAX_BATCH) {
     throw new Error(`a match needs ${statements.length} statements; /api/db takes ${MAX_BATCH} per transaction`);
@@ -615,7 +613,7 @@ async function dbBatchOnce(statements) {
 // deltas in logic.js, write them back. Two failures were inherent to that and
 // neither could be fixed from the browser.
 //
-//  * RACE. processGameEvents() runs in EVERY open client, so two matches read
+//  * RACE. Every open client could record a match at once, so two matches read
 //    the same starting rating and both computed an "after" from it. Applying
 //    the movement as a delta stopped one match's result being discarded, but
 //    both deltas were still computed against the same stale base, and the
@@ -648,44 +646,17 @@ async function dbBatchOnce(statements) {
 async function init() {
   await Promise.all([loadMembers(), loadData()]);
   renderRankings();
-  // Process external events in the background; refresh rankings when done
-  Promise.all([processGameEvents()])
-    .then(() => loadData().then(renderRankings))
-    .catch(console.error);
 }
 
-// ── Generic game.completed event processing ───────────────────────────────────
-// Any app publishing game.completed with game_type "1v1" or "ranked" and a
-// category_name/category_icon will automatically create a leaderboard category
-// and have its results folded into ratings.
-
-// One match is written as ONE batch: a participant row per player, then the
-// match row that closes it and fires the rating fold. The SELECT-then-INSERT
-// dedup above only narrows the common case — processGameEvents() runs
-// client-side in every member's browser, so two tabs can both find no row. The
-// UNIQUE index on source_event_id (migration 003) is what actually stops the
-// second one; its batch fails as a whole — taking the participant rows and the
-// fold with it — and the event is skipped rather than double-counted.
-//
-// `players` carries only what the CLIENT is entitled to assert: who played, on
-// which side, and what the result was. The ratings are the hub's to decide.
-async function writeMatch({ matchId, categoryId, event, categoryName, players }) {
-  const statements = participantStatements(matchId, players);
-  statements.push({
-    // logged_by is REQUIRED by the row policy and its value is replaced by the
-    // hub with the caller's own id, so what is passed here is a placeholder the
-    // engine overwrites — it cannot be forged and it cannot be left out.
-    //
-    // For this path that identity is whichever member's session happened to
-    // process the event, which is nobody's claim about the result. The UI
-    // therefore keys off source_event_id and labels these matches "imported
-    // automatically" instead of naming a person; see loggedByLabel().
-    sql: `INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, notes, source_event_id, source_event_seq, logged_by, visibility)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 'everyone')`,
-    params: [matchId, categoryId, event.created_at, `Via ${categoryName}`, event.id, Number(event.sequence) || 0, ME?.id ?? ""],
-  });
-  await dbBatchOnce(statements);
-}
+// ── Games finished in other apps ──────────────────────────────────────────────
+// A game.completed from Sea Battle or Quiet Time is imported by the HUB, not by
+// this page: manifest.suggested_automations turns on one automatic rule per
+// publisher, and its import_1v1_game / import_ranked_game action inserts the match row with the
+// roster in its import_* columns. The "expand_participants" write effect turns
+// that roster into participant rows in the same transaction, ahead of the two
+// rating folds. So an imported game lands whether or not anyone opens this app,
+// and a child finishing a game no longer waits for an adult's session to create
+// its category. Imported matches carry source_event_id; see loggedByLabel().
 
 // The participant rows for one match, in the order the effects require: every
 // one of them BEFORE the match row that triggers the fold.
@@ -706,438 +677,6 @@ function participantStatements(matchId, players) {
           VALUES (?, ?, ?, ?, ?, 0, 0)`,
     params: [crypto.randomUUID(), matchId, p.memberId, p.team, p.result],
   }));
-}
-
-// The hub rejects — never clamps — a limit above this, and the caller below
-// treats any non-2xx as "nothing to do". Asking for more than the maximum does
-// not get a big page, it gets a 400 and silently disables ingestion entirely.
-const EVENT_PAGE_SIZE = 500;
-// A launch will drain at most this many pages. Purely a runaway guard: the loop
-// already exits on a short page.
-const EVENT_MAX_PAGES = 40;
-
-// Can this payload actually determine an ordering? Ratings are irreversible —
-// the next match is computed from the last — so a payload that does not clearly
-// say who beat whom must be dropped, never guessed at.
-//
-// `rank` was optional in the event contract until recently, and nothing required
-// member ids or ranks to be distinct. Sorting on a missing rank crowned an
-// arbitrary member, and a repeated member id updated one person's rating and
-// games_played twice for a single game. Both are now rejected at publish, but
-// the backlog can still hold events written under the old rules.
-function isScorableGame(gameType, winnerId, loserId, results, roster) {
-  // EVERY participant must be a current member of this household. Neither the
-  // event contract nor a shape check can do this — both see ids only as
-  // non-empty distinct strings — and two things go wrong without it:
-  //
-  //  * a backlog event naming a REMOVED member re-creates the lb_ratings row
-  //    that `member_references.lb_ratings.on_removed: "delete"` deleted,
-  //    resurrecting data the platform was asked to erase;
-  //  * an id belonging to nobody creates a ghost participant AND moves a real
-  //    member's rating, because Elo is computed against the opponent.
-  //
-  // Permanent, not transient: an id absent from the current roster was removed
-  // or never existed, and neither becomes valid later. The caller refuses to run
-  // at all when the roster is empty, so "not in roster" can never mean "roster
-  // failed to load".
-  const known = (id) => Boolean(id) && roster.has(id);
-  if (gameType === "1v1") return known(winnerId) && known(loserId) && winnerId !== loserId;
-  if (gameType !== "ranked") return false;
-  // Upper bound as well as lower: more participants than fit in one transaction
-  // cannot be recorded atomically, and a half-written match cannot be retried.
-  // The hub now refuses these at publish too; this covers the backlog written
-  // before it did.
-  if (!Array.isArray(results) || results.length < 2) return false;
-  if (results.length > MAX_MATCH_PARTICIPANTS) return false;
-  const ids = results.map((r) => r?.member_id);
-  const ranks = results.map((r) => r?.rank);
-  if (!ids.every(known) || new Set(ids).size !== ids.length) return false;
-  // Ranks must all be present and distinct, or the sort order — and therefore
-  // the winner — is decided by array position rather than by the result.
-  if (ranks.some((r) => typeof r !== "number" || !Number.isFinite(r))) return false;
-  return new Set(ranks).size === ranks.length;
-}
-
-// ── Ingestion cursor ──────────────────────────────────────────────────────────
-//
-// Kept in its own row rather than derived from the matches written, because the
-// cursor has to advance past events that produce NO match — ones already
-// imported, and ones whose payload can never be processed. See migration 006.
-const EVENT_CURSOR_KEY = "event_cursor";
-
-// The cursor is (epoch, sequence) and both live in ONE ROW. A sequence number
-// is meaningless without the generation it was issued in, so they are read and
-// written together — see the guard in writeEventCursor.
-// A stored cursor number is only USABLE if it is a non-negative safe integer.
-// lb_sync is member_writable, so `value` and `epoch` can hold -1, 1e300, a
-// fraction, or text — and `Number(x) || 0` passes every one of those through
-// except the ones that happen to be falsy.
-//
-// A single bad number takes ingestion down for the whole household. The hub
-// answers a negative or non-integer `after_sequence` with a 400, and the fetch
-// below returns on ANY non-2xx — before it reads the epoch header, so both
-// reset paths sit behind the early return and neither can run. The cursor
-// stays bad, and every launch repeats the same 400.
-//
-// So an unusable number reads as 0 AND is reported as unusable, which makes the
-// caller repair the row once the hub has named the current epoch. Reading it as
-// 0 alone would not be enough: the guarded write compares against the STORED
-// value, so a poisoned 1e300 would refuse every advance and the app would
-// re-read the whole backlog from the floor on every launch, forever.
-function usableCursorNumber(value) {
-  // Screened before Number(): both columns are INTEGER NOT NULL, but INTEGER is
-  // an AFFINITY in SQLite, not a constraint — 'abc', 1.5 and 1e300 all store as
-  // written — and Number(null) / Number("") are 0, which would read as a
-  // legitimate floor position. It is not one: the guarded write compares
-  // `excluded.value > lb_sync.value`, and a comparison against NULL is NULL,
-  // so the cursor could never advance again.
-  if (value === null || value === undefined || value === "") return null;
-  const n = Number(value);
-  return Number.isSafeInteger(n) && n >= 0 ? n : null;
-}
-
-async function readEventCursor() {
-  try {
-    const { rows } = await db(
-      `SELECT value, epoch FROM app_leaderboard__lb_sync WHERE key = ?`, [EVENT_CURSOR_KEY]
-    );
-    // No row yet is the ordinary first run, not damage: (0, 0) is exactly right
-    // and the epoch check below writes the row on this pass anyway.
-    if (!rows?.[0]) return { sequence: 0, epoch: 0, usable: true };
-    const sequence = usableCursorNumber(rows[0].value);
-    const epoch = usableCursorNumber(rows[0].epoch);
-    return {
-      sequence: sequence ?? 0,
-      epoch: epoch ?? 0,
-      usable: sequence !== null && epoch !== null,
-    };
-  // A cursor we could not READ is not a cursor we know to be damaged — treat
-  // this pass as a floor read and leave the row alone.
-  } catch { return { sequence: 0, epoch: 0, usable: true }; }
-}
-
-// Force the cursor to the floor of the CURRENT generation, ignoring the guard.
-//
-// Two callers, and both hold evidence that the stored cursor no longer means
-// anything — which is the only thing that justifies bypassing the guard:
-//
-//  * the epoch-mismatch branch, where the hub has just named a generation
-//    different from the stored one;
-//  * the rowid-reuse detector, which saw a page come back at or below the
-//    sequence it asked past.
-//
-// Neither may use the guarded write: the guard compares against the stored
-// value, and in both cases the stored value is the thing being discarded. See
-// each call site.
-async function resetEventCursor(epoch) {
-  try {
-    await db(
-      `INSERT INTO app_leaderboard__lb_sync (key, value, epoch) VALUES (?, 0, ?)
-       ON CONFLICT (key) DO UPDATE SET value = 0, epoch = excluded.epoch`,
-      [EVENT_CURSOR_KEY, Math.max(0, Number(epoch) || 0)]
-    );
-  } catch { /* next launch sees the same evidence and tries again */ }
-}
-
-// Advance the cursor, or move it to a new generation. One statement, because
-// (epoch, sequence) is one value: the update wins only if the incoming
-// generation is NEWER, or the same generation with a HIGHER sequence.
-//
-// Both halves of that guard are load-bearing. Without the epoch comparison a
-// tab holding a stale, high sequence from the previous generation would beat a
-// cursor another tab had just reset to 0 for the new one — the sequence guard
-// alone sees a bigger number and takes it, restoring a position that no longer
-// exists. Without the sequence comparison two tabs in the same generation could
-// undo each other's progress and never converge.
-//
-// A reset is not a special case: it is a write of (newEpoch, 0), which wins on
-// the epoch arm. That is why there is no separate unconditional reset — one
-// that ignored the guard would be the exact hole this closes.
-async function writeEventCursor(sequence, epoch) {
-  const nextSeq = Math.max(0, Number(sequence) || 0);
-  const nextEpoch = Math.max(0, Number(epoch) || 0);
-  try {
-    await db(
-      `INSERT INTO app_leaderboard__lb_sync (key, value, epoch) VALUES (?, ?, ?)
-       ON CONFLICT (key) DO UPDATE SET value = excluded.value, epoch = excluded.epoch
-        WHERE excluded.epoch > app_leaderboard__lb_sync.epoch
-           OR (excluded.epoch = app_leaderboard__lb_sync.epoch
-               AND excluded.value > app_leaderboard__lb_sync.value)`,
-      [EVENT_CURSOR_KEY, nextSeq, nextEpoch]
-    );
-  } catch { /* a cursor we could not persist just means the next launch re-reads */ }
-}
-
-async function importedEventIds(ids) {
-  const seen = new Set();
-  for (let i = 0; i < ids.length; i += 90) {
-    const chunk = ids.slice(i, i + 90);
-    const { rows } = await db(
-      `SELECT source_event_id FROM app_leaderboard__lb_matches WHERE source_event_id IN (${chunk.map(() => "?").join(",")})`,
-      chunk,
-    );
-    for (const r of rows ?? []) seen.add(r.source_event_id);
-  }
-  return seen;
-}
-
-async function processGameEvents() {
-  // No roster, no ingestion. loadMembers() sets `members = []` when the fetch
-  // FAILS, so an empty roster means "unknown", not "nobody" — and the
-  // participant check below treats an unrecognised member as a permanent skip.
-  // Running with an empty roster would therefore mark every event permanently
-  // unprocessable and advance the cursor past the entire backlog. Waiting a
-  // launch costs nothing; that would lose the events for good.
-  if (!members.length) return;
-  const roster = new Set(members.map((m) => m.id));
-  const categoryCache = new Map();
-
-  for (let page = 0; page < EVENT_MAX_PAGES; page++) {
-    // The cursor is INDEPENDENT PERSISTED STATE, not something derived from the
-    // matches written. A derived cursor can only advance when a row is written,
-    // but most events legitimately write nothing — one already imported is
-    // deduped, a malformed payload is ignored forever — so on an upgraded
-    // household (every existing match defaulting to source_event_seq 0) the
-    // first page deduped entirely, wrote nothing, left the cursor at 0, and the
-    // same 500 events were re-read until the runaway guard tripped. Ingestion
-    // stalled permanently and silently. See migration 006.
-    const { sequence: afterSequence, epoch: storedEpochRead, usable: cursorUsable } = await readEventCursor();
-    let storedEpoch = storedEpochRead;
-    let epoch = storedEpoch;
-
-    let events = [];
-    try {
-      // order=asc is what makes a backlog drainable. The page is truncated by
-      // LIMIT, so newest-first returns the top slice and leaves everything below
-      // it permanently unreachable once the cursor moves past. Ascending walks
-      // FORWARD from the cursor, so page N+1 begins exactly where page N ended.
-      const url = `/api/events?type=game.completed&order=asc&limit=${EVENT_PAGE_SIZE}` +
-        `&after_sequence=${afterSequence}`;
-      const res = await fetch(url);
-      if (!res.ok) return;
-      // The GENERATION the sequence numbers belong to. `sequence` is a SQLite
-      // rowid and rowids are reused, so deleting the newest events (an app
-      // uninstall) renumbers later ones underneath a stored cursor: the number
-      // survives but no longer means the same position. When the hub reports a
-      // different epoch than the one saved with the cursor, the cursor is not
-      // stale — it is meaningless — and the only safe reading is to start over.
-      // Replay is free because source_event_id dedups.
-      epoch = Number(res.headers.get("X-Events-Epoch")) || 0;
-      events = await res.json();
-    } catch { return; }
-
-    if (epoch !== storedEpoch || !cursorUsable) {
-      // FORCED, not guarded. A different epoch means the stored cursor is not
-      // stale but MEANINGLESS, so there is no sense in which the stored value
-      // could be "ahead" of what we are about to write — and the guarded write
-      // loses whenever the stored epoch is the larger number. That is not a
-      // theoretical ordering: lb_sync is member_writable, so a member can
-      // store an epoch above anything the hub will ever report, and every
-      // subsequent pass would then read the poisoned cursor, fail to correct
-      // it (the guard refuses), and `continue` into the same state — ingestion
-      // stalled for the whole household until the row was repaired by hand.
-      // Forcing it here is safe for the reason the guard exists: the hazard is
-      // an OLD generation's high sequence beating a reset, and this writes the
-      // generation the hub just named, from the response in hand.
-      //
-      // `!cursorUsable` joins the same branch for the same reason: a stored
-      // number that is not a position cannot be compared against, so the only
-      // way back is to overwrite it. Reaching here at all means the fetch
-      // SUCCEEDED, which it does because readEventCursor substituted 0 for the
-      // unusable value rather than sending it.
-      await resetEventCursor(epoch);
-      storedEpoch = epoch;
-      // Re-ask from the floor rather than processing a page fetched against the
-      // old cursor: under the new numbering that page is an arbitrary slice.
-      continue;
-    }
-
-    if (!events.length) return;
-
-    // The API is asked for ascending order, but the cursor's correctness must
-    // not depend on the server honouring it — sort locally too. Processing runs
-    // oldest-first and stops at the first transient failure, so the cursor only
-    // ever sits at the end of an unbroken run of successes.
-    events.sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
-
-    // The highest sequence this page has finished with, counting deduped and
-    // permanently-ignored events — leaving those behind the cursor is what
-    // stalls ingestion.
-    let handled = afterSequence;
-
-    // ROWID REUSE. The event sequence is a SQLite rowid, and rowids are reused:
-    // after a retention purge or an app uninstall the next insert is
-    // MAX(rowid)+1 over the SURVIVING rows, so the numbering can restart below a
-    // live cursor. The hub detects that (cursor above the table's maximum) and
-    // serves from the start of the window instead — which is how a page can come
-    // back holding sequences at or below the cursor we asked past.
-    //
-    // That has to be handled here, not ignored, and specifically BECAUSE the
-    // cursor is monotonic. Every event in such a page is below `handled`, so
-    // nothing advances it, the page stays full, and the same 500 events are
-    // re-read to the page cap on every launch — a permanent stall with the
-    // remainder of the backlog unreachable. Dropping the cursor to the floor
-    // once is the recovery: it replays, and replay is free because
-    // source_event_id dedups.
-    // Belt and braces behind the epoch check above: the epoch catches a
-    // renumbering the hub KNOWS about, this catches one it does not — any delete
-    // path that forgets to bump, on a hub too old to send the header at all.
-    // Pass the CURRENT epoch, not zero: writing a zero epoch here would look
-    // like a mismatch on the next launch and reset again, every launch, forever.
-    const lowest = Math.min(...events.map((e) => Number(e.sequence) || 0));
-    if (afterSequence > 0 && lowest <= afterSequence) {
-      // Same generation, so the guarded write would refuse a lower sequence.
-      // This one case writes unconditionally.
-      //
-      // Inventing a local epoch (epoch + 1) instead would deadlock: the hub
-      // would keep reporting the real epoch, every page would read as a
-      // mismatch, and the corrective write would then lose its own guard.
-      //
-      // Bypassing the guard is safe here in a way a stale tab's write is not.
-      // The hazard the guard exists for is an OLD generation's high sequence
-      // beating a reset; this writes a LOW sequence on evidence gathered from
-      // the page in hand. If a concurrent tab has legitimately advanced, it
-      // re-advances and we re-read — dedup makes that free.
-      await resetEventCursor(epoch);
-      handled = 0;
-    }
-
-    // One dedup query per page rather than per event. A replay of an already
-    // imported page is the common case on upgrade, and asking row by row made it
-    // 500 round trips; `IN` chunks stay under D1's 100-bound-parameter cap.
-    const alreadyImported = await importedEventIds(events.map((e) => e.id));
-
-    // `stopped` marks a TRANSIENT failure — the only thing that may hold the
-    // cursor back.
-    let stopped = false;
-    for (const event of events) {
-      const seq = Number(event.sequence) || 0;
-      if (alreadyImported.has(event.id)) { handled = Math.max(handled, seq); continue; }
-
-      const { game_type, winner_id, loser_id, results, category_name, category_icon } = event.payload ?? {};
-      // PERMANENT: this payload will never become processable, so the cursor
-      // must move past it. Leaving it behind would re-read it on every page.
-      if (!game_type || !category_name) { handled = Math.max(handled, seq); continue; }
-
-      // Every payload check happens BEFORE the category is created, and each one
-      // is permanent. Two reasons this ordering matters:
-      //
-      //  * an unrecognised game_type used to reach neither branch below, so it
-      //    never advanced `handled` — one such event at the end of a page was
-      //    re-read forever and later pages were never reached;
-      //  * it also created a category first, leaving an empty scoring category
-      //    behind for a game the app cannot score.
-      //
-      // The hub now rejects these shapes at publish (game.completed takes an
-      // enum game_type and requires unique member ids and ranks), but events
-      // stored under the OLD contract are still replayed from the backlog, and
-      // this consumer folds them into ratings that no later match can correct.
-      // So it validates for itself rather than trusting the bus.
-      if (!isScorableGame(game_type, winner_id, loser_id, results, roster)) {
-        handled = Math.max(handled, seq);
-        continue;
-      }
-
-      // A category's identity is (name, game_type). Both halves matter, and the
-      // ICON is deliberately not part of it — a publisher changing its emoji
-      // must not fork the scoring history.
-      //
-      // game_type does, because it decides how results are folded into ratings.
-      // Keyed on name alone, "Ping Pong" published once as 1v1 and once as
-      // ranked collapsed into ONE category whose stored type was whichever event
-      // arrived first: ranked results were then scored as 1v1 (and the
-      // manual-entry form offered the wrong shape) with nothing to indicate it.
-      // Two categories sharing a name is the honest outcome — the alternative is
-      // silently discarding one game's history or corrupting the other's.
-      const cacheKey = `${category_name}|${game_type}`;
-      if (!categoryCache.has(cacheKey)) {
-        const id = await ensureCategory(category_name, category_icon ?? "", game_type);
-        // TRANSIENT, so stop rather than skip: lb_categories is adult_writable, so
-        // a child's session simply cannot create it, and an adult's later will.
-        // `continue` here would move on to a newer event whose success advances
-        // the cursor past this one for good.
-        if (!id) { stopped = true; break; }
-        categoryCache.set(cacheKey, id);
-      }
-      const categoryId = categoryCache.get(cacheKey);
-
-      if (game_type === "1v1") {
-        if (!winner_id || !loser_id) { handled = Math.max(handled, seq); continue; }   // permanent
-
-        // No ratings pre-read: the fold computes every rating in-transaction.
-        try {
-          await writeMatch({
-            matchId: crypto.randomUUID(), categoryId, event, categoryName: category_name,
-            players: [
-              { memberId: winner_id, team: 0, result: "win" },
-              { memberId: loser_id,  team: 1, result: "loss" },
-            ],
-          });
-          handled = Math.max(handled, seq);
-        } catch { stopped = true; break; }   // transient: cursor stays put, retried next page/launch
-
-      } else if (game_type === "ranked") {
-        if (!Array.isArray(results) || results.length < 2) { handled = Math.max(handled, seq); continue; }   // permanent
-
-        // A free-for-all is scored as the winner (team 0) against everyone else
-        // (team 1) — the shape calcFfaDeltas used to build in the browser, now
-        // expressed by the team column the fold reads. isScorableGame() has
-        // already required distinct ids and distinct finite ranks, so index 0
-        // after the sort is the winner and nothing here has to guess.
-        const ranked = [...results].sort((a, b) => a.rank - b.rank);
-
-        try {
-          await writeMatch({
-            matchId: crypto.randomUUID(), categoryId, event, categoryName: category_name,
-            players: ranked.map((r, i) => ({
-              memberId: r.member_id, team: i === 0 ? 0 : 1, result: i === 0 ? "win" : "loss",
-            })),
-          });
-          handled = Math.max(handled, seq);
-        } catch { stopped = true; break; }   // transient: cursor stays put, retried next page/launch
-      }
-    }
-
-    // Persist what this page finished with BEFORE deciding whether to continue.
-    // Without this the next page would ask from the old cursor and re-read the
-    // same events; with it, a run that stops on a transient failure still keeps
-    // the ground it gained.
-    await writeEventCursor(handled, storedEpoch);
-
-    // A short page means the backlog is drained. A stop means a transient
-    // failure is holding the cursor at the last event that succeeded, so there
-    // is nothing to gain from asking again this launch.
-    if (stopped || events.length < EVENT_PAGE_SIZE) return;
-  }
-}
-
-async function ensureCategory(name, icon, gameType) {
-  // Matched on (name, game_type), the same identity the page cache uses. Looking
-  // up by name alone returned a category with a DIFFERENT scoring model and
-  // folded incompatible results into it.
-  const { rows } = await db(
-    `SELECT id FROM app_leaderboard__lb_categories WHERE name = ? AND game_type = ?`,
-    [name, gameType]
-  );
-  if (rows.length) return rows[0].id;
-  try {
-    // Insert-then-read-back, not insert-and-assume. Every open client ingests,
-    // so two of them can both find nothing above and both try to create the
-    // category; the UNIQUE (name, game_type) index (migration 006) makes the
-    // second a no-op instead of a duplicate, and the read-back returns whichever
-    // row actually won. Trusting the id we generated would attach this match to
-    // a row that does not exist.
-    await db(
-      `INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by)
-       VALUES (?, ?, ?, ?, ?, '') ON CONFLICT (name, game_type) DO NOTHING`,
-      [crypto.randomUUID(), name, icon, gameType, new Date().toISOString()]
-    );
-    const { rows: after } = await db(
-      `SELECT id FROM app_leaderboard__lb_categories WHERE name = ? AND game_type = ?`,
-      [name, gameType]
-    );
-    return after?.[0]?.id ?? null;
-  } catch { return null; }
 }
 
 async function loadMembers() {
@@ -1274,10 +813,8 @@ function renderCategories() {
 // questioned, and an anonymous one cannot. Rows predating migration 006 carry
 // an empty logged_by and say nothing rather than guessing.
 function loggedByLabel(match) {
-  // An imported match was written by whichever member's session happened to run
-  // the ingestion, not by a person choosing to record a result. Naming them
-  // would be a false claim — and an arbitrary one, since under concurrent
-  // ingestion the unique-index winner decides whose session got there first.
+  // An imported match was written by the hub for a game another app finished,
+  // not by a person choosing to record a result, so there is nobody to name.
   if (match.source_event_id) return `<span>· imported automatically</span>`;
   if (!match.logged_by) return "";
   const m = members.find((x) => x.id === match.logged_by);
@@ -1606,8 +1143,7 @@ window.submitMatch = async function() {
 
     // The batch invariant, asserted where the batch is actually built rather
     // than only where the roster is picked: 1 + N statements have to fit in one
-    // transaction. The imported path enforces the same ceiling in
-    // isScorableGame(). Past it dbBatchOnce refuses the write outright, rather
+    // transaction. Past it dbBatchOnce refuses the write outright, rather
     // than splitting so the match row — which is what fires the rating fold —
     // lands in a different transaction from the participants it must score.
     //

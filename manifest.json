@@ -79,6 +79,15 @@
           "actions": [
             "update"
           ]
+        },
+        "import_results_json": {
+          "writable_by": []
+        },
+        "import_winner_id": {
+          "writable_by": []
+        },
+        "import_loser_id": {
+          "writable_by": []
         }
       },
       "frozen_when": {
@@ -188,6 +197,10 @@
     "lb_matches": {
       "insert": [
         {
+          "label": "expand_participants",
+          "statement": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) SELECT lower(hex(randomblob(16))), :new.id, json_extract(j.value, '$.member_id'), CASE WHEN json_extract(j.value, '$.rank') = (SELECT MIN(json_extract(k.value, '$.rank')) FROM app_leaderboard__lb_matches AS n, json_each(CASE WHEN json_array_length(n.import_results_json) >= 2 THEN n.import_results_json WHEN n.import_winner_id IS NOT NULL THEN json_array(json_object('member_id', n.import_winner_id, 'rank', 1), json_object('member_id', n.import_loser_id, 'rank', 2)) ELSE '[]' END) AS k WHERE n.id = :new.id) THEN 0 ELSE 1 END, CASE WHEN json_extract(j.value, '$.rank') = (SELECT MIN(json_extract(k.value, '$.rank')) FROM app_leaderboard__lb_matches AS n, json_each(CASE WHEN json_array_length(n.import_results_json) >= 2 THEN n.import_results_json WHEN n.import_winner_id IS NOT NULL THEN json_array(json_object('member_id', n.import_winner_id, 'rank', 1), json_object('member_id', n.import_loser_id, 'rank', 2)) ELSE '[]' END) AS k WHERE n.id = :new.id) THEN 'win' ELSE 'loss' END, 0, 0 FROM app_leaderboard__lb_matches AS m, json_each(CASE WHEN json_array_length(m.import_results_json) >= 2 THEN m.import_results_json WHEN m.import_winner_id IS NOT NULL THEN json_array(json_object('member_id', m.import_winner_id, 'rank', 1), json_object('member_id', m.import_loser_id, 'rank', 2)) ELSE '[]' END) AS j WHERE m.id = :new.id"
+        },
+        {
           "label": "fold_participant_ratings",
           "statement": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) SELECT p.id, p.match_id, p.member_id, COALESCE((SELECT r.rating FROM app_leaderboard__lb_ratings r WHERE r.member_id = p.member_id AND r.category_id = :new.category_id), 1000.0), MAX(100.0, COALESCE((SELECT r.rating FROM app_leaderboard__lb_ratings r WHERE r.member_id = p.member_id AND r.category_id = :new.category_id), 1000.0) + ROUND(32.0 * (CASE p.result WHEN 'win' THEN 1.0 WHEN 'draw' THEN 0.5 ELSE 0.0 END - 1.0 / (1.0 + pow(10.0, (COALESCE((SELECT AVG(COALESCE(r2.rating, 1000.0)) FROM app_leaderboard__lb_participants q LEFT JOIN app_leaderboard__lb_ratings r2 ON r2.member_id = q.member_id AND r2.category_id = :new.category_id WHERE q.match_id = :new.id AND q.team <> p.team AND (SELECT c.game_type FROM app_leaderboard__lb_categories c WHERE c.id = :new.category_id) <> 'cooperative'), 1000.0) - COALESCE((SELECT AVG(COALESCE(r2.rating, 1000.0)) FROM app_leaderboard__lb_participants q LEFT JOIN app_leaderboard__lb_ratings r2 ON r2.member_id = q.member_id AND r2.category_id = :new.category_id WHERE q.match_id = :new.id AND q.team = p.team AND ((SELECT c.game_type FROM app_leaderboard__lb_categories c WHERE c.id = :new.category_id) <> 'cooperative' OR q.member_id = p.member_id)), 1000.0)) / 400.0))))) FROM app_leaderboard__lb_participants p WHERE p.match_id = :new.id"
         },
@@ -226,9 +239,6 @@
     "label": "Rankings",
     "size": "medium"
   },
-  "subscribes_to": [
-    "game.completed"
-  ],
   "ai_access": {
     "allowed": true,
     "mode": "read",
@@ -236,5 +246,203 @@
       "current_standings",
       "recent_matches"
     ]
-  }
+  },
+  "automation_actions": {
+    "import_1v1_game": {
+      "title": "Import a finished 1v1 game",
+      "description": "Record a two-player game another app finished as a match, creating its category the first time.",
+      "params": {
+        "category_name": {
+          "type": "text",
+          "label": "Category",
+          "required": true
+        },
+        "category_icon": {
+          "type": "text",
+          "label": "Icon",
+          "default": ""
+        },
+        "winner_id": {
+          "type": "member",
+          "label": "Winner",
+          "required": true
+        },
+        "loser_id": {
+          "type": "member",
+          "label": "Loser",
+          "required": true
+        }
+      },
+      "dedupe": {
+        "table": "lb_matches",
+        "column": "source_event_id"
+      },
+      "steps": [
+        {
+          "op": "insert",
+          "table": "lb_categories",
+          "on_conflict": "ignore",
+          "values": {
+            "id": "$event_id",
+            "name": ":category_name",
+            "icon": ":category_icon",
+            "game_type": "1v1",
+            "created_at": "$now",
+            "created_by": ""
+          }
+        },
+        {
+          "op": "lookup",
+          "table": "lb_categories",
+          "where": {
+            "name": ":category_name",
+            "game_type": "1v1"
+          },
+          "bind": {
+            "category_id": "id"
+          },
+          "on_missing": "error"
+        },
+        {
+          "op": "insert",
+          "table": "lb_matches",
+          "values": {
+            "id": "$event_id",
+            "category_id": ":category_id",
+            "played_at": "$now",
+            "notes": "Imported",
+            "source_event_id": "$event_id",
+            "source_event_seq": "0",
+            "logged_by": "",
+            "visibility": "everyone",
+            "import_winner_id": ":winner_id",
+            "import_loser_id": ":loser_id"
+          }
+        }
+      ]
+    },
+    "import_ranked_game": {
+      "title": "Import a finished ranked game",
+      "description": "Record a game another app finished, with every player's finishing rank, as a match, creating its category the first time.",
+      "params": {
+        "category_name": {
+          "type": "text",
+          "label": "Category",
+          "required": true
+        },
+        "category_icon": {
+          "type": "text",
+          "label": "Icon",
+          "default": ""
+        },
+        "results": {
+          "type": "json",
+          "label": "Ranked results",
+          "required": true,
+          "items": {
+            "member_id": "member",
+            "rank": "integer"
+          }
+        }
+      },
+      "dedupe": {
+        "table": "lb_matches",
+        "column": "source_event_id"
+      },
+      "steps": [
+        {
+          "op": "insert",
+          "table": "lb_categories",
+          "on_conflict": "ignore",
+          "values": {
+            "id": "$event_id",
+            "name": ":category_name",
+            "icon": ":category_icon",
+            "game_type": "ranked",
+            "created_at": "$now",
+            "created_by": ""
+          }
+        },
+        {
+          "op": "lookup",
+          "table": "lb_categories",
+          "where": {
+            "name": ":category_name",
+            "game_type": "ranked"
+          },
+          "bind": {
+            "category_id": "id"
+          },
+          "on_missing": "error"
+        },
+        {
+          "op": "insert",
+          "table": "lb_matches",
+          "values": {
+            "id": "$event_id",
+            "category_id": ":category_id",
+            "played_at": "$now",
+            "notes": "Imported",
+            "source_event_id": "$event_id",
+            "source_event_seq": "0",
+            "logged_by": "",
+            "visibility": "everyone",
+            "import_results_json": ":results"
+          }
+        }
+      ]
+    }
+  },
+  "suggested_automations": [
+    {
+      "title": "Import Sea Battle games",
+      "description": "Every finished Sea Battle game is recorded as a match and folded into ratings.",
+      "trigger_app_id": "sea-battle",
+      "trigger_event": "game.completed",
+      "target_app_id": "leaderboard",
+      "action_id": "import_1v1_game",
+      "enable": "automatically",
+      "param_map": {
+        "category_name": {
+          "kind": "payload_field",
+          "value": "category_name"
+        },
+        "category_icon": {
+          "kind": "payload_field",
+          "value": "category_icon"
+        },
+        "winner_id": {
+          "kind": "payload_field",
+          "value": "winner_id"
+        },
+        "loser_id": {
+          "kind": "payload_field",
+          "value": "loser_id"
+        }
+      }
+    },
+    {
+      "title": "Import Quiet Time games",
+      "description": "Every finished Quiet Time session shared to the leaderboard is recorded as a match and folded into ratings.",
+      "trigger_app_id": "quiet-time",
+      "trigger_event": "game.completed",
+      "target_app_id": "leaderboard",
+      "action_id": "import_ranked_game",
+      "enable": "automatically",
+      "param_map": {
+        "category_name": {
+          "kind": "payload_field",
+          "value": "category_name"
+        },
+        "category_icon": {
+          "kind": "payload_field",
+          "value": "category_icon"
+        },
+        "results": {
+          "kind": "payload_field",
+          "value": "results"
+        }
+      }
+    }
+  ]
 }
