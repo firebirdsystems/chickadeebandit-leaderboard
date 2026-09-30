@@ -14,5 +14,8 @@ JOIN app_leaderboard__lb_categories c
   ON c.id = m.category_id
 JOIN app_leaderboard__lb_participants p
   ON p.match_id = m.id
+LEFT JOIN app_leaderboard__lb_voids v
+  ON v.match_id = m.id
+WHERE v.match_id IS NULL
 ORDER BY m.played_at DESC
 LIMIT 200

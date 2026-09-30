@@ -30,10 +30,10 @@
   "storage": "db",
   "preload": {
     "lb_matches": {
-      "sql": "SELECT c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by, COUNT(m.id) AS match_count, MAX(m.played_at) AS last_played FROM app_leaderboard__lb_categories c LEFT JOIN app_leaderboard__lb_matches m ON m.category_id = c.id GROUP BY c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by ORDER BY last_played DESC"
+      "sql": "SELECT c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by, COUNT(CASE WHEN v.match_id IS NULL THEN m.id END) AS match_count, MAX(CASE WHEN v.match_id IS NULL THEN m.played_at END) AS last_played FROM app_leaderboard__lb_categories c LEFT JOIN app_leaderboard__lb_matches m ON m.category_id = c.id LEFT JOIN app_leaderboard__lb_voids v ON v.match_id = m.id GROUP BY c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by ORDER BY last_played DESC"
     },
     "lb_ratings": {
-      "sql": "SELECT * FROM app_leaderboard__lb_ratings"
+      "sql": "SELECT * FROM app_leaderboard__lb_ratings WHERE games_played > 0"
     }
   },
   "db_encryption": "off",
@@ -191,6 +191,13 @@
         "status_column": "match_id",
         "locked_when_not_null": true
       }
+    },
+    "lb_voids": {
+      "kind": "adult_writable",
+      "frozen_when": {
+        "status_column": "voided_at",
+        "locked_when_not_null": true
+      }
     }
   },
   "write_effects": {
@@ -207,6 +214,14 @@
         {
           "label": "fold_ratings",
           "statement": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) SELECT lower(hex(randomblob(16))), pr.member_id, :new.category_id, pr.rating_after, 1, CASE WHEN p.result = 'win' THEN 1 ELSE 0 END, CASE WHEN p.result = 'loss' THEN 1 ELSE 0 END FROM app_leaderboard__lb_participant_ratings pr JOIN app_leaderboard__lb_participants p ON p.id = pr.participant_id WHERE pr.match_id = :new.id ON CONFLICT (member_id, category_id) DO UPDATE SET rating = excluded.rating, games_played = games_played + 1, wins = wins + excluded.wins, losses = losses + excluded.losses"
+        }
+      ]
+    },
+    "lb_voids": {
+      "insert": [
+        {
+          "label": "revert_ratings",
+          "statement": "UPDATE app_leaderboard__lb_ratings SET rating = MAX(100.0, rating - COALESCE((SELECT pr.rating_after - pr.rating_before FROM app_leaderboard__lb_participant_ratings pr WHERE pr.match_id = :new.match_id AND pr.member_id = app_leaderboard__lb_ratings.member_id), 0)), games_played = MAX(0, games_played - 1), wins = MAX(0, wins - (SELECT COUNT(*) FROM app_leaderboard__lb_participants p WHERE p.match_id = :new.match_id AND p.member_id = app_leaderboard__lb_ratings.member_id AND p.result = 'win')), losses = MAX(0, losses - (SELECT COUNT(*) FROM app_leaderboard__lb_participants p WHERE p.match_id = :new.match_id AND p.member_id = app_leaderboard__lb_ratings.member_id AND p.result = 'loss')) WHERE category_id = (SELECT m.category_id FROM app_leaderboard__lb_matches m WHERE m.id = :new.match_id) AND member_id IN (SELECT pr.member_id FROM app_leaderboard__lb_participant_ratings pr WHERE pr.match_id = :new.match_id)"
         }
       ]
     }

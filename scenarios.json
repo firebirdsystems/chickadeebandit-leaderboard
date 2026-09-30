@@ -315,6 +315,122 @@
           }
         }
       ]
+    },
+    {
+      "name": "voiding a match takes its rating movement back and un-counts the game; a void is permanent, needs a real match, and only adults can void",
+      "members": { "a": "adult", "b": "adult", "kid": "child" },
+      "steps": [
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?)",
+          "params": ["cat1", "Chess", "♟", "1v1", "2026-03-01T18:00:00Z", "{{a}}"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, 0, 0)",
+          "params": ["p-a", "m1", "{{a}}", 0, "win"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, 0, 0)",
+          "params": ["p-b", "m1", "{{b}}", 1, "loss"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, notes, logged_by, visibility) VALUES (?, ?, ?, ?, ?, 'everyone')",
+          "params": ["m1", "cat1", "2026-03-01T18:00:00Z", "", "{{a}}"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "SELECT member_id, rating, games_played, wins, losses FROM app_leaderboard__lb_ratings ORDER BY member_id",
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              { "member_id": "scn-a", "rating": 1016, "games_played": 1, "wins": 1 },
+              { "member_id": "scn-b", "rating": 984, "games_played": 1, "losses": 1 }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "INSERT INTO app_leaderboard__lb_voids (match_id, reason, voided_at) VALUES (?, '', ?)",
+          "params": ["m1", "2026-03-01T18:00:00Z"],
+          "expect": { "status": 403 }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "INSERT INTO app_leaderboard__lb_voids (match_id, reason, voided_at) VALUES (?, '', ?)",
+          "params": ["no-such-match", "2026-03-01T18:00:00Z"],
+          "expect": { "status": 400 }
+        },
+        {
+          "action": "db",
+          "as": "b",
+          "sql": "INSERT INTO app_leaderboard__lb_voids (match_id, reason, voided_at) VALUES (?, '', ?)",
+          "params": ["m1", "2026-03-01T18:00:00Z"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "SELECT member_id, rating, games_played, wins, losses FROM app_leaderboard__lb_ratings ORDER BY member_id",
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              { "member_id": "scn-a", "rating": 1000, "games_played": 0, "wins": 0, "losses": 0 },
+              { "member_id": "scn-b", "rating": 1000, "games_played": 0, "wins": 0, "losses": 0 }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "INSERT INTO app_leaderboard__lb_voids (match_id, reason, voided_at) VALUES (?, '', ?)",
+          "params": ["m1", "2026-03-01T18:00:00Z"],
+          "expect": { "status": 400 }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "DELETE FROM app_leaderboard__lb_voids WHERE match_id = ?",
+          "params": ["m1"]
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT match_id FROM app_leaderboard__lb_voids",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "match_id": "m1" }] }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "SELECT c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by, COUNT(CASE WHEN v.match_id IS NULL THEN m.id END) AS match_count, MAX(CASE WHEN v.match_id IS NULL THEN m.played_at END) AS last_played FROM app_leaderboard__lb_categories c LEFT JOIN app_leaderboard__lb_matches m ON m.category_id = c.id LEFT JOIN app_leaderboard__lb_voids v ON v.match_id = m.id GROUP BY c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by ORDER BY last_played DESC",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [{ "id": "cat1", "match_count": 0, "last_played": null }]
+          }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "SELECT * FROM app_leaderboard__lb_ratings WHERE games_played > 0",
+          "expect": { "status": 200, "rowCount": 0 }
+        }
+      ]
     }
   ]
 }

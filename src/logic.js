@@ -68,6 +68,8 @@ export function buildOverallRankings(members, ratingsByMember) {
 export function categoryChampions(allRatings) {
   const champions = new Map();
   for (const r of allRatings) {
+    // A voided last match leaves a zero-game row behind; it is no one's title.
+    if (r.games_played === 0) continue;
     const current = champions.get(r.category_id);
     if (!current || r.rating > current.rating) {
       champions.set(r.category_id, { memberId: r.member_id, rating: r.rating });

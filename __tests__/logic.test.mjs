@@ -111,6 +111,17 @@ describe("categoryChampions", () => {
     expect(categoryChampions([])).toEqual(new Map());
   });
 
+  it("skips zero-game rows a voided match leaves behind", () => {
+    const rows = [
+      { member_id: "alice", category_id: "chess", rating: 1016, games_played: 0 },
+      { member_id: "bob",   category_id: "chess", rating: 1000, games_played: 1 },
+      { member_id: "carol", category_id: "darts", rating: 1000, games_played: 0 },
+    ];
+    const champs = categoryChampions(rows);
+    expect(champs.get("chess").memberId).toBe("bob");
+    expect(champs.has("darts")).toBe(false);
+  });
+
   it("identifies the highest-rated player per category", () => {
     const rows = [
       { member_id: "alice", category_id: "foosball", rating: 1200 },

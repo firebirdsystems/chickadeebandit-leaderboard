@@ -192,6 +192,13 @@
     .match-delta { font-size: 0.75rem; }
     .match-delta.pos { color: #10b981; }
     .match-delta.neg { color: #ef4444; }
+    .match-row.voided .match-teams { text-decoration: line-through; opacity: .55; }
+    .match-void-tag { font-weight: 600; color: var(--hub-text-muted, #6b7280); }
+    .match-void-btn {
+      margin-left: auto; font: inherit; font-size: 0.75rem; padding: 2px 8px;
+      border: 1px solid var(--hub-border, #e5e7eb); border-radius: 6px;
+      background: transparent; color: var(--hub-text-muted, #6b7280); cursor: pointer;
+    }
 
     /* ── Record form ── */
     .record-step { display: none; }
@@ -496,7 +503,7 @@
 <div class="toast" id="toast" data-testid="toast"></div>
 
 <script type="module">
-import { esc, memberColor, initial } from "/hub-sdk.js";
+import { esc, memberColor, initial, hubConfirm } from "/hub-sdk.js";
 import {
   buildOverallRankings, categoryChampions,
   rankLabel, formatRating, gameTypeLabel
@@ -527,6 +534,9 @@ async function publishEvent(type, subjectId, payload = {}) {
 function canManageCategories() {
   return !ME || ME.role === "adult";
 }
+
+// Voids are adult_writable too (row_policies.lb_voids), and the same gate.
+const canVoidMatches = canManageCategories;
 
 // ── State ──────────────────────────────────────────────────────────────────────
 let members = [];
@@ -703,8 +713,10 @@ async function loadData() {
     // table is a top-level reference, so its policy is applied in the ON clause
     // and LEFT JOIN semantics survive — a category with no matches still lists,
     // with match_count 0.
-    db(`SELECT c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by, COUNT(m.id) AS match_count, MAX(m.played_at) AS last_played FROM app_leaderboard__lb_categories c LEFT JOIN app_leaderboard__lb_matches m ON m.category_id = c.id GROUP BY c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by ORDER BY last_played DESC`),
-    db(`SELECT * FROM app_leaderboard__lb_ratings`),
+    db(`SELECT c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by, COUNT(CASE WHEN v.match_id IS NULL THEN m.id END) AS match_count, MAX(CASE WHEN v.match_id IS NULL THEN m.played_at END) AS last_played FROM app_leaderboard__lb_categories c LEFT JOIN app_leaderboard__lb_matches m ON m.category_id = c.id LEFT JOIN app_leaderboard__lb_voids v ON v.match_id = m.id GROUP BY c.id, c.name, c.icon, c.game_type, c.created_at, c.created_by ORDER BY last_played DESC`),
+    // A rating row outlives its last game: voiding a category's only match
+    // un-counts it to zero but leaves the row. Zero-game rows are not standings.
+    db(`SELECT * FROM app_leaderboard__lb_ratings WHERE games_played > 0`),
   ]);
   categories = catResult.rows;
   allRatings = ratingResult.rows;
@@ -834,7 +846,7 @@ window.openCategoryDetail = async function(categoryId) {
   document.getElementById("app-title").textContent = `${cat.icon} ${cat.name}`;
 
   const [{ rows: catRatings }, { rows: matches }] = await Promise.all([
-    db(`SELECT * FROM app_leaderboard__lb_ratings WHERE category_id = ? ORDER BY rating DESC`, [categoryId]),
+    db(`SELECT * FROM app_leaderboard__lb_ratings WHERE category_id = ? AND games_played > 0 ORDER BY rating DESC`, [categoryId]),
     db(`SELECT * FROM app_leaderboard__lb_matches WHERE category_id = ? ORDER BY played_at DESC LIMIT 20`, [categoryId]),
   ]);
   // Participants are fetched for exactly the matches just loaded, by id.
@@ -852,6 +864,16 @@ window.openCategoryDetail = async function(categoryId) {
   // as a 0-point game. LEFT, so a match whose movement predates the table (or
   // was never folded) still lists its players instead of vanishing.
   const matchIds = matches.map((m) => m.id);
+  // Voided matches stay listed — what was logged — but struck through; their
+  // rating movement has already been taken back off.
+  const { rows: voids } = matchIds.length
+    ? await db(
+        `SELECT match_id, voided_at FROM app_leaderboard__lb_voids
+          WHERE match_id IN (${matchIds.map(() => "?").join(",")})`,
+        matchIds,
+      )
+    : { rows: [] };
+  const voidByMatch = new Map(voids.map((v) => [v.match_id, v]));
   const { rows: participants } = matchIds.length
     ? await db(
         `SELECT p.id, p.match_id, p.member_id, p.team, p.result,
@@ -922,8 +944,9 @@ window.openCategoryDetail = async function(categoryId) {
         </span>`;
       };
 
+      const voided = voidByMatch.get(match.id);
       return `
-        <div class="match-row" data-testid="match-row" data-match-id="${esc(match.id)}">
+        <div class="match-row${voided ? " voided" : ""}" data-testid="match-row" data-match-id="${esc(match.id)}">
           <div class="match-teams">
             ${renderTeam(teamA, 0)}
             ${teamB.length ? `<span class="match-vs">vs</span>${renderTeam(teamB, 1)}` : ""}
@@ -932,6 +955,11 @@ window.openCategoryDetail = async function(categoryId) {
             <span>${date}</span>
             ${match.notes ? `<span>· ${esc(match.notes)}</span>` : ""}
             ${loggedByLabel(match)}
+            ${voided
+              ? `<span class="match-void-tag" data-testid="match-voided">· voided</span>`
+              : canVoidMatches()
+                ? `<button type="button" class="match-void-btn" data-void-match="${esc(match.id)}" data-testid="match-void">Void</button>`
+                : ""}
           </div>
         </div>
       `;
@@ -1316,10 +1344,42 @@ document.getElementById("categories-grid").addEventListener("click", e => {
   const el = e.target.closest("[data-cat-id]");
   if (el) openCategoryDetail(el.dataset.catId);
 });
+document.getElementById("cat-detail-matches").addEventListener("click", e => {
+  const el = e.target.closest("[data-void-match]");
+  if (el) voidMatch(el.dataset.voidMatch);
+});
 document.getElementById("record-member-chips").addEventListener("click", e => {
   const el = e.target.closest("[data-member-id]");
   if (el) toggleMemberTeam(el.dataset.memberId);
 });
+
+// A void is the only correction a match gets: the row is frozen once the Elo
+// fold has run, so instead a lb_voids row is appended and its write effect
+// takes every player's movement from this match back off their rating in the
+// same transaction. Elo is path-dependent, so when later games in the category
+// were rated off the inflated numbers the reversal restores the points this
+// match moved, not a full replay of everything after it.
+async function voidMatch(matchId) {
+  if (!canVoidMatches()) return;
+  const ok = await hubConfirm("Void this match?", {
+    description: "The rating points it moved are taken back and it stops counting as a game. This can't be undone.",
+    confirmLabel: "Void match",
+    destructive: true,
+  });
+  if (!ok) return;
+  try {
+    await db(
+      `INSERT INTO app_leaderboard__lb_voids (match_id, reason, voided_at) VALUES (?, '', ?)`,
+      [matchId, new Date().toISOString()],
+    );
+  } catch {
+    showToast("Could not void that match.");
+    return;
+  }
+  showToast("Match voided.");
+  await loadData();
+  await openCategoryDetail(currentCategoryId);
+}
 
 function handleDeepLink() {
   const categoryId = new URLSearchParams(window.location.search).get("categoryId");

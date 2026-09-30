@@ -20,6 +20,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, it, expect, beforeEach } from "vitest";
+import { categoryChampions } from "../src/logic.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -46,6 +47,8 @@ function splitStatements(sql) {
 let db;
 beforeEach(() => {
   db = new DatabaseSync(":memory:");
+  // D1 enforces foreign keys; say so here rather than lean on node's default.
+  db.exec("PRAGMA foreign_keys = ON");
   for (const sql of MIGRATIONS) for (const statement of splitStatements(sql)) db.exec(statement);
   db.prepare(`INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by)
               VALUES ('cat', 'Quiet Time', '', 'ranked', '2026-09-26', '')`).run();
@@ -179,5 +182,99 @@ describe("expand_participants — a roster naming someone twice", () => {
       import_results_json: JSON.stringify([{ member_id: "a", rank: 1 }, { member_id: "a", rank: 2 }]),
     })).toThrow(/UNIQUE/);
     expect(db.prepare(`SELECT COUNT(*) AS n FROM app_leaderboard__lb_ratings`).get().n).toBe(0);
+  });
+});
+
+// ── Voids: the lb_voids write effect ────────────────────────────────────────────
+// A void appends an lb_voids row; "revert_ratings" takes each player's recorded
+// movement for that match back off their rating and un-counts the game.
+
+const VOID_EFFECTS = manifest.write_effects.lb_voids.insert;
+
+function insertVoid(matchId) {
+  const full = { match_id: matchId, reason: "", voided_at: "2026-09-27T00:00:00.000Z" };
+  db.exec("BEGIN");
+  try {
+    db.prepare(`INSERT INTO app_leaderboard__lb_voids (match_id, reason, voided_at)
+                VALUES (:match_id, :reason, :voided_at)`).run(full);
+    for (const effect of VOID_EFFECTS) {
+      const sql = effect.statement.replace(/:new\.([a-z_]+)/g, ":new_$1");
+      const names = [...new Set([...sql.matchAll(/:new_([a-z_]+)/g)].map(m => m[1]))];
+      db.prepare(sql).run(Object.fromEntries(names.map(n => [`new_${n}`, full[n]])));
+    }
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+const ratingTable = () => Object.fromEntries(db.prepare(
+  `SELECT member_id, rating, games_played, wins, losses FROM app_leaderboard__lb_ratings ORDER BY member_id`,
+).all().map(r => [r.member_id, { rating: r.rating, games: r.games_played, wins: r.wins, losses: r.losses }]));
+
+describe("write_effects — voiding a match", () => {
+  it("restores the ratings and records exactly when the voided match was the last one", () => {
+    insertMatch({ id: "m1", import_winner_id: "a", import_loser_id: "b" });
+    insertMatch({ id: "m2", import_winner_id: "b", import_loser_id: "a" });
+    const before = ratingTable();
+    insertMatch({ id: "m3", import_winner_id: "a", import_loser_id: "b" });
+    insertVoid("m3");
+    expect(ratingTable()).toEqual(before);
+  });
+
+  it("takes back exactly the voided match's own movement when later games followed it", () => {
+    insertMatch({ id: "m1", import_winner_id: "a", import_loser_id: "b" });
+    const moved = Object.fromEntries(db.prepare(
+      `SELECT member_id, rating_after - rating_before AS d FROM app_leaderboard__lb_participant_ratings WHERE match_id = 'm1'`,
+    ).all().map(r => [r.member_id, r.d]));
+    insertMatch({ id: "m2", import_winner_id: "b", import_loser_id: "a" });
+    const before = ratingTable();
+    insertVoid("m1");
+    const after = ratingTable();
+    for (const id of ["a", "b"]) {
+      expect(after[id].rating).toBe(before[id].rating - moved[id]);
+      expect(after[id].games).toBe(before[id].games - 1);
+    }
+    expect(after.a.wins).toBe(before.a.wins - 1);
+    expect(after.b.losses).toBe(before.b.losses - 1);
+  });
+
+  it("touches only the voided match's players and category", () => {
+    db.prepare(`INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by)
+                VALUES ('other', 'Chess', '', '1v1', '2026-09-26', '')`).run();
+    insertMatch({ id: "m1", import_winner_id: "a", import_loser_id: "b" });
+    insertMatch({ id: "m2", category_id: "other", import_winner_id: "a", import_loser_id: "c" });
+    const otherBefore = db.prepare(`SELECT member_id, rating FROM app_leaderboard__lb_ratings WHERE category_id = 'other' ORDER BY member_id`).all().map(r => ({ ...r }));
+    insertVoid("m1");
+    const otherAfter = db.prepare(`SELECT member_id, rating FROM app_leaderboard__lb_ratings WHERE category_id = 'other' ORDER BY member_id`).all().map(r => ({ ...r }));
+    expect(otherAfter).toEqual(otherBefore);
+  });
+
+  it("cannot run twice: a second void of the same match fails and changes nothing", () => {
+    insertMatch({ id: "m1", import_winner_id: "a", import_loser_id: "b" });
+    insertVoid("m1");
+    const once = ratingTable();
+    expect(() => insertVoid("m1")).toThrow(/UNIQUE|PRIMARY KEY/i);
+    expect(ratingTable()).toEqual(once);
+  });
+
+  it("refuses a void for a match that does not exist, so it cannot pre-void a later one", () => {
+    expect(() => insertVoid("m-later")).toThrow(/FOREIGN KEY/i);
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM app_leaderboard__lb_voids`).get().n).toBe(0);
+    insertMatch({ id: "m-later", import_winner_id: "a", import_loser_id: "b" });
+    expect(ratingTable().a.games).toBe(1);
+    insertVoid("m-later");
+    expect(ratingTable().a.games).toBe(0);
+  });
+
+  it("voiding a category's only match leaves no standings and no champion", () => {
+    insertMatch({ id: "m1", import_winner_id: "a", import_loser_id: "b" });
+    insertVoid("m1");
+    // The zero-game rows remain; every reader of standings must skip them.
+    expect(Object.keys(ratingTable())).toEqual(["a", "b"]);
+    const standings = db.prepare(manifest.preload.lb_ratings.sql).all();
+    expect(standings).toEqual([]);
+    expect(categoryChampions(db.prepare(`SELECT * FROM app_leaderboard__lb_ratings`).all()).size).toBe(0);
   });
 });
