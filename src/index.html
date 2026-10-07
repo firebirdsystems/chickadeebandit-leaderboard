@@ -372,7 +372,7 @@
 
 <div class="app-header">
   <button class="back-btn" id="back-btn" data-testid="back" onclick="goBack()">← <span id="back-label">Back</span></button>
-  <h1 class="app-title" id="app-title" data-testid="app-title">🏆 Leaderboard</h1>
+  <h1 class="app-title" id="app-title" data-testid="app-title">Leaderboard</h1>
 </div>
 
 <nav class="tab-nav" id="tab-nav">
@@ -386,7 +386,7 @@
   <div class="card">
     <div class="card-title">Overall Rankings</div>
     <div id="overall-list" data-testid="overall-list">
-      <div class="empty-state"><div class="empty-icon">🏆</div><p>No matches recorded yet</p></div>
+      <div class="empty-state"><div class="empty-icon"></div><p>No matches recorded yet</p></div>
     </div>
   </div>
   <div class="card" id="champions-card" data-testid="champions-card" style="display:none">
@@ -503,7 +503,7 @@
 <div class="toast" id="toast" data-testid="toast"></div>
 
 <script type="module">
-import { esc, memberColor, initial, hubConfirm } from "/hub-sdk.js";
+import { esc, memberColor, initial, hubConfirm, glyph, chickadee } from "/hub-sdk.js";
 import {
   buildOverallRankings, categoryChampions,
   rankLabel, formatRating, gameTypeLabel
@@ -734,7 +734,7 @@ window.switchTab = function(tab) {
   document.getElementById("view-record").classList.toggle("active", tab === "record");
   document.getElementById("tab-nav").style.display = "";
   document.getElementById("back-btn").classList.remove("visible");
-  document.getElementById("app-title").textContent = "🏆 Leaderboard";
+  document.getElementById("app-title").innerHTML = `${glyph("trophy")} Leaderboard`;
 
   if (tab === "categories") renderCategories();
   if (tab === "record") renderRecordStep1();
@@ -752,7 +752,7 @@ function renderRankings() {
 
   const list = document.getElementById("overall-list");
   if (!ranked.length) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">🏆</div><p>No matches recorded yet — record your first match to see rankings!</p></div>`;
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">${chickadee("nest", { size: 72 })}</div><p>No matches recorded yet — record your first match to see rankings!</p></div>`;
   } else {
     list.innerHTML = ranked.map(({ member, composite, totalGames, categoryRatings }, i) => {
       const color = memberColor(member.id, members);
@@ -1137,14 +1137,14 @@ function renderResultOptions() {
   let html = "";
   if (isCooperative) {
     html = `
-      <button class="result-btn" data-testid="result-option" data-side="A" onclick="selectResult('A')">✅ Won</button>
-      <button class="result-btn" data-testid="result-option" data-side="B" onclick="selectResult('B')">❌ Lost</button>
+      <button class="result-btn" data-testid="result-option" data-side="A" onclick="selectResult('A')">${glyph("tick")} Won</button>
+      <button class="result-btn" data-testid="result-option" data-side="B" onclick="selectResult('B')">${glyph("close")} Lost</button>
     `;
   } else {
     html = `
       <button class="result-btn team-a-win" data-testid="result-option" data-side="A" onclick="selectResult('A')">🔵 ${esc(teamANames)} won</button>
       <button class="result-btn team-b-win" data-testid="result-option" data-side="B" onclick="selectResult('B')">🟡 ${esc(teamBNames)} won</button>
-      <button class="result-btn draw-win" data-testid="result-option" data-side="draw" onclick="selectResult('draw')">🤝 Draw</button>
+      <button class="result-btn draw-win" data-testid="result-option" data-side="draw" onclick="selectResult('draw')">${glyph("handshake")} Draw</button>
     `;
   }
   document.getElementById("result-options").innerHTML = html;

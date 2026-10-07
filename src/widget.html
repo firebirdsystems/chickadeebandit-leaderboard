@@ -80,21 +80,25 @@
 <body>
 
 <div class="header">
-  <span class="header-icon">🏆</span>
+  <span class="header-icon"></span>
   <span class="header-title">Leaderboard</span>
   <a class="header-link" href="/run/leaderboard">Open</a>
 </div>
 
 <div class="content" id="content">
   <div class="empty">
-    <span class="icon">🏆</span>
+    <span class="icon"></span>
     <p>No matches recorded yet</p>
   </div>
 </div>
 
 <script type="module">
-import { esc, memberColor, initial } from "/hub-sdk.js";
+import { esc, memberColor, initial, glyph, chickadee } from "/hub-sdk.js";
 import { compositeRating, buildOverallRankings, rankLabel, formatRating } from "./logic.js";
+
+// Static markup cannot call the SDK helpers, so fill these from script.
+document.querySelector(".header-icon").innerHTML = glyph("trophy");
+document.querySelector(".empty .icon").innerHTML = chickadee("nest", { size: 56 });
 
 const CONTEXT = window.__CONTEXT_URL ?? "";
 const DB      = window.__DB_URL      ?? "";
