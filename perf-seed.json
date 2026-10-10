@@ -1,0 +1,2113 @@
+{
+  "seed": [
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-110 days'), ?)",
+      "params": [
+        "perf-cat-pingpong",
+        "Ping Pong",
+        "🏓",
+        "1v1",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-102 days'), ?)",
+      "params": [
+        "perf-cat-chess",
+        "Chess",
+        "♟️",
+        "1v1",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-94 days'), ?)",
+      "params": [
+        "perf-cat-mariokart",
+        "Mario Kart",
+        "🎮",
+        "1v1",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-86 days'), ?)",
+      "params": [
+        "perf-cat-darts",
+        "Darts",
+        "🎯",
+        "1v1",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-78 days'), ?)",
+      "params": [
+        "perf-cat-cards",
+        "Gin Rummy",
+        "🃏",
+        "1v1",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days'), ?)",
+      "params": [
+        "perf-cat-foosball",
+        "Foosball",
+        "⚽",
+        "team",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-62 days'), ?)",
+      "params": [
+        "perf-cat-puzzle",
+        "Jigsaw Night",
+        "🧩",
+        "cooperative",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-74 days','-5 hours','-13 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-001",
+        "perf-cat-pingpong",
+        "{{partner}}",
+        "everyone",
+        "Rematch after dinner"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-001",
+        "perf-match-001",
+        "{{partner}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-001",
+        "perf-match-001",
+        "{{partner}}",
+        1000.0,
+        1016.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-002",
+        "perf-match-001",
+        "{{me}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-002",
+        "perf-match-001",
+        "{{me}}",
+        1000.0,
+        984.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-63 days','-1 hours','-26 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-002",
+        "perf-cat-pingpong",
+        "{{partner}}",
+        "everyone",
+        "Went to a tiebreak"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-003",
+        "perf-match-002",
+        "{{partner}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-003",
+        "perf-match-002",
+        "{{partner}}",
+        1016.0,
+        1031.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-004",
+        "perf-match-002",
+        "{{child}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-004",
+        "perf-match-002",
+        "{{child}}",
+        1000.0,
+        985.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-53 days','-6 hours','-39 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-003",
+        "perf-cat-pingpong",
+        "{{me}}",
+        "everyone",
+        "Left-handed handicap"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-005",
+        "perf-match-003",
+        "{{adult2}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-005",
+        "perf-match-003",
+        "{{adult2}}",
+        1000.0,
+        1015.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-006",
+        "perf-match-003",
+        "{{me}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-006",
+        "perf-match-003",
+        "{{me}}",
+        984.0,
+        969.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-42 days','-2 hours','-52 minutes'), ?, ?)",
+      "params": [
+        "perf-match-004",
+        "perf-cat-pingpong",
+        "{{child}}",
+        "everyone"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-007",
+        "perf-match-004",
+        "{{child}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-007",
+        "perf-match-004",
+        "{{child}}",
+        985.0,
+        1002.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-008",
+        "perf-match-004",
+        "{{adult2}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-008",
+        "perf-match-004",
+        "{{adult2}}",
+        1015.0,
+        998.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-31 days','-7 hours','-5 minutes'), ?, ?)",
+      "params": [
+        "perf-match-005",
+        "perf-cat-pingpong",
+        "{{child2}}",
+        "everyone"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-009",
+        "perf-match-005",
+        "{{child2}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-009",
+        "perf-match-005",
+        "{{child2}}",
+        1000.0,
+        1015.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-010",
+        "perf-match-005",
+        "{{me}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-010",
+        "perf-match-005",
+        "{{me}}",
+        969.0,
+        954.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-21 days','-3 hours','-18 minutes'), ?, ?)",
+      "params": [
+        "perf-match-006",
+        "perf-cat-pingpong",
+        "{{me}}",
+        "everyone"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-011",
+        "perf-match-006",
+        "{{partner}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-011",
+        "perf-match-006",
+        "{{partner}}",
+        1031.0,
+        1044.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-012",
+        "perf-match-006",
+        "{{me}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-012",
+        "perf-match-006",
+        "{{me}}",
+        954.0,
+        941.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-10 days','-8 hours','-31 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-007",
+        "perf-cat-pingpong",
+        "{{partner}}",
+        "everyone",
+        "Best of three"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-013",
+        "perf-match-007",
+        "{{partner}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-013",
+        "perf-match-007",
+        "{{partner}}",
+        1044.0,
+        1058.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-014",
+        "perf-match-007",
+        "{{child}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-014",
+        "perf-match-007",
+        "{{child}}",
+        1002.0,
+        988.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-4 hours','-44 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-008",
+        "perf-cat-pingpong",
+        "{{adult2}}",
+        "everyone",
+        "Rematch after dinner"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-015",
+        "perf-match-008",
+        "{{adult2}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-015",
+        "perf-match-008",
+        "{{adult2}}",
+        998.0,
+        1011.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-016",
+        "perf-match-008",
+        "{{me}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-016",
+        "perf-match-008",
+        "{{me}}",
+        941.0,
+        928.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-71 days','-57 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-009",
+        "perf-cat-chess",
+        "{{adult2}}",
+        "everyone",
+        "Went to a tiebreak"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-017",
+        "perf-match-009",
+        "{{partner}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-017",
+        "perf-match-009",
+        "{{partner}}",
+        1000.0,
+        1016.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-018",
+        "perf-match-009",
+        "{{adult2}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-018",
+        "perf-match-009",
+        "{{adult2}}",
+        1000.0,
+        984.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-57 days','-5 hours','-10 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-010",
+        "perf-cat-chess",
+        "{{adult2}}",
+        "everyone",
+        "Left-handed handicap"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-019",
+        "perf-match-010",
+        "{{adult2}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-019",
+        "perf-match-010",
+        "{{adult2}}",
+        984.0,
+        1001.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-020",
+        "perf-match-010",
+        "{{child2}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-020",
+        "perf-match-010",
+        "{{child2}}",
+        1000.0,
+        983.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-43 days','-1 hours','-23 minutes'), ?, ?)",
+      "params": [
+        "perf-match-011",
+        "perf-cat-chess",
+        "{{child}}",
+        "everyone"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-021",
+        "perf-match-011",
+        "{{child}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-021",
+        "perf-match-011",
+        "{{child}}",
+        1000.0,
+        1017.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-022",
+        "perf-match-011",
+        "{{partner}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-022",
+        "perf-match-011",
+        "{{partner}}",
+        1016.0,
+        999.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-29 days','-6 hours','-36 minutes'), ?, ?)",
+      "params": [
+        "perf-match-012",
+        "perf-cat-chess",
+        "{{child2}}",
+        "everyone"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-023",
+        "perf-match-012",
+        "{{child}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-023",
+        "perf-match-012",
+        "{{child}}",
+        1017.0,
+        1031.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-024",
+        "perf-match-012",
+        "{{child2}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-024",
+        "perf-match-012",
+        "{{child2}}",
+        983.0,
+        969.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','-2 hours','-49 minutes'), ?, ?)",
+      "params": [
+        "perf-match-013",
+        "perf-cat-chess",
+        "{{me}}",
+        "everyone"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-025",
+        "perf-match-013",
+        "{{me}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-025",
+        "perf-match-013",
+        "{{me}}",
+        1000.0,
+        1016.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-026",
+        "perf-match-013",
+        "{{partner}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-026",
+        "perf-match-013",
+        "{{partner}}",
+        999.0,
+        983.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 days','-7 hours','-2 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-014",
+        "perf-cat-chess",
+        "{{partner}}",
+        "everyone",
+        "Best of three"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-027",
+        "perf-match-014",
+        "{{partner}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-027",
+        "perf-match-014",
+        "{{partner}}",
+        983.0,
+        1000.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-028",
+        "perf-match-014",
+        "{{adult2}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-028",
+        "perf-match-014",
+        "{{adult2}}",
+        1001.0,
+        984.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-72 days','-3 hours','-15 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-015",
+        "perf-cat-mariokart",
+        "{{child}}",
+        "everyone",
+        "Rematch after dinner"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-029",
+        "perf-match-015",
+        "{{adult2}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-029",
+        "perf-match-015",
+        "{{adult2}}",
+        1000.0,
+        1016.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-030",
+        "perf-match-015",
+        "{{child}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-030",
+        "perf-match-015",
+        "{{child}}",
+        1000.0,
+        984.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-58 days','-8 hours','-28 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-016",
+        "perf-cat-mariokart",
+        "{{me}}",
+        "everyone",
+        "Went to a tiebreak"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-031",
+        "perf-match-016",
+        "{{me}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-031",
+        "perf-match-016",
+        "{{me}}",
+        1000.0,
+        1015.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-032",
+        "perf-match-016",
+        "{{child}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-032",
+        "perf-match-016",
+        "{{child}}",
+        984.0,
+        969.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-44 days','-4 hours','-41 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-017",
+        "perf-cat-mariokart",
+        "{{child2}}",
+        "everyone",
+        "Left-handed handicap"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-033",
+        "perf-match-017",
+        "{{child2}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-033",
+        "perf-match-017",
+        "{{child2}}",
+        1000.0,
+        1017.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-034",
+        "perf-match-017",
+        "{{adult2}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-034",
+        "perf-match-017",
+        "{{adult2}}",
+        1016.0,
+        999.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','-54 minutes'), ?, ?)",
+      "params": [
+        "perf-match-018",
+        "perf-cat-mariokart",
+        "{{child2}}",
+        "everyone"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-035",
+        "perf-match-018",
+        "{{me}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-035",
+        "perf-match-018",
+        "{{me}}",
+        1015.0,
+        1031.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-036",
+        "perf-match-018",
+        "{{child2}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-036",
+        "perf-match-018",
+        "{{child2}}",
+        1017.0,
+        1001.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-16 days','-5 hours','-7 minutes'), ?, ?)",
+      "params": [
+        "perf-match-019",
+        "perf-cat-mariokart",
+        "{{partner}}",
+        "everyone"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-037",
+        "perf-match-019",
+        "{{partner}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-037",
+        "perf-match-019",
+        "{{partner}}",
+        1000.0,
+        1016.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-038",
+        "perf-match-019",
+        "{{adult2}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-038",
+        "perf-match-019",
+        "{{adult2}}",
+        999.0,
+        983.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days','-1 hours','-20 minutes'), ?, ?)",
+      "params": [
+        "perf-match-020",
+        "perf-cat-mariokart",
+        "{{adult2}}",
+        "everyone"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-039",
+        "perf-match-020",
+        "{{adult2}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-039",
+        "perf-match-020",
+        "{{adult2}}",
+        983.0,
+        998.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-040",
+        "perf-match-020",
+        "{{child}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-040",
+        "perf-match-020",
+        "{{child}}",
+        969.0,
+        954.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-66 days','-6 hours','-33 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-021",
+        "perf-cat-darts",
+        "{{child2}}",
+        "everyone",
+        "Best of three"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-041",
+        "perf-match-021",
+        "{{child}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-041",
+        "perf-match-021",
+        "{{child}}",
+        1000.0,
+        1016.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-042",
+        "perf-match-021",
+        "{{child2}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-042",
+        "perf-match-021",
+        "{{child2}}",
+        1000.0,
+        984.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','-2 hours','-46 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-022",
+        "perf-cat-darts",
+        "{{child2}}",
+        "everyone",
+        "Rematch after dinner"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-043",
+        "perf-match-022",
+        "{{child2}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-043",
+        "perf-match-022",
+        "{{child2}}",
+        984.0,
+        1001.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-044",
+        "perf-match-022",
+        "{{partner}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-044",
+        "perf-match-022",
+        "{{partner}}",
+        1000.0,
+        983.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-24 days','-7 hours','-59 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-023",
+        "perf-cat-darts",
+        "{{me}}",
+        "everyone",
+        "Went to a tiebreak"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-045",
+        "perf-match-023",
+        "{{me}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-045",
+        "perf-match-023",
+        "{{me}}",
+        1000.0,
+        1017.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-046",
+        "perf-match-023",
+        "{{child}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-046",
+        "perf-match-023",
+        "{{child}}",
+        1016.0,
+        999.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-3 days','-3 hours','-12 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-024",
+        "perf-cat-darts",
+        "{{me}}",
+        "everyone",
+        "Left-handed handicap"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-047",
+        "perf-match-024",
+        "{{partner}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-047",
+        "perf-match-024",
+        "{{partner}}",
+        983.0,
+        1001.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-048",
+        "perf-match-024",
+        "{{me}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-048",
+        "perf-match-024",
+        "{{me}}",
+        1017.0,
+        999.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-67 days','-8 hours','-25 minutes'), ?, ?)",
+      "params": [
+        "perf-match-025",
+        "perf-cat-cards",
+        "{{child2}}",
+        "everyone"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-049",
+        "perf-match-025",
+        "{{child2}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-049",
+        "perf-match-025",
+        "{{child2}}",
+        1000.0,
+        1016.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-050",
+        "perf-match-025",
+        "{{me}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-050",
+        "perf-match-025",
+        "{{me}}",
+        1000.0,
+        984.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-46 days','-4 hours','-38 minutes'), ?, ?)",
+      "params": [
+        "perf-match-026",
+        "perf-cat-cards",
+        "{{me}}",
+        "everyone"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-051",
+        "perf-match-026",
+        "{{me}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-051",
+        "perf-match-026",
+        "{{me}}",
+        984.0,
+        1001.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-052",
+        "perf-match-026",
+        "{{adult2}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-052",
+        "perf-match-026",
+        "{{adult2}}",
+        1000.0,
+        983.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','-51 minutes'), ?, ?)",
+      "params": [
+        "perf-match-027",
+        "perf-cat-cards",
+        "{{partner}}",
+        "everyone"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-053",
+        "perf-match-027",
+        "{{child2}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-053",
+        "perf-match-027",
+        "{{child2}}",
+        1016.0,
+        1031.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-054",
+        "perf-match-027",
+        "{{partner}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-054",
+        "perf-match-027",
+        "{{partner}}",
+        1000.0,
+        985.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-4 days','-5 hours','-4 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-028",
+        "perf-cat-cards",
+        "{{adult2}}",
+        "everyone",
+        "Best of three"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-055",
+        "perf-match-028",
+        "{{adult2}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-055",
+        "perf-match-028",
+        "{{adult2}}",
+        983.0,
+        999.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-056",
+        "perf-match-028",
+        "{{partner}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-056",
+        "perf-match-028",
+        "{{partner}}",
+        985.0,
+        969.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-47 days','-1 hours','-17 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-029",
+        "perf-cat-foosball",
+        "{{partner}}",
+        "everyone",
+        "Rematch after dinner"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-057",
+        "perf-match-029",
+        "{{partner}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-057",
+        "perf-match-029",
+        "{{partner}}",
+        1000.0,
+        1016.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-058",
+        "perf-match-029",
+        "{{child}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-058",
+        "perf-match-029",
+        "{{child}}",
+        1000.0,
+        1016.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-059",
+        "perf-match-029",
+        "{{me}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-059",
+        "perf-match-029",
+        "{{me}}",
+        1000.0,
+        984.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-060",
+        "perf-match-029",
+        "{{adult2}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-060",
+        "perf-match-029",
+        "{{adult2}}",
+        1000.0,
+        984.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, logged_by, visibility, notes) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-5 days','-6 hours','-30 minutes'), ?, ?, ?)",
+      "params": [
+        "perf-match-030",
+        "perf-cat-foosball",
+        "{{adult2}}",
+        "everyone",
+        "Went to a tiebreak"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-061",
+        "perf-match-030",
+        "{{partner}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-061",
+        "perf-match-030",
+        "{{partner}}",
+        1016.0,
+        1031.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-062",
+        "perf-match-030",
+        "{{child}}",
+        0,
+        "win",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-062",
+        "perf-match-030",
+        "{{child}}",
+        1016.0,
+        1031.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-063",
+        "perf-match-030",
+        "{{adult2}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-063",
+        "perf-match-030",
+        "{{adult2}}",
+        984.0,
+        969.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participants (id, match_id, member_id, team, result, rating_before, rating_after) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-064",
+        "perf-match-030",
+        "{{child2}}",
+        1,
+        "loss",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_participant_ratings (participant_id, match_id, member_id, rating_before, rating_after) VALUES (?, ?, ?, ?, ?)",
+      "params": [
+        "perf-part-064",
+        "perf-match-030",
+        "{{child2}}",
+        1000.0,
+        985.0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_voids (match_id, reason, voided_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days'))",
+      "params": [
+        "perf-match-024",
+        "Scored on the wrong board"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-01",
+        "{{partner}}",
+        "perf-cat-pingpong",
+        1058.0,
+        4,
+        4,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-02",
+        "{{me}}",
+        "perf-cat-pingpong",
+        928.0,
+        5,
+        0,
+        5
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-03",
+        "{{child}}",
+        "perf-cat-pingpong",
+        988.0,
+        3,
+        1,
+        2
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-04",
+        "{{adult2}}",
+        "perf-cat-pingpong",
+        1011.0,
+        3,
+        2,
+        1
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-05",
+        "{{child2}}",
+        "perf-cat-pingpong",
+        1015.0,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-06",
+        "{{partner}}",
+        "perf-cat-chess",
+        1000.0,
+        4,
+        2,
+        2
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-07",
+        "{{adult2}}",
+        "perf-cat-chess",
+        984.0,
+        3,
+        1,
+        2
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-08",
+        "{{child2}}",
+        "perf-cat-chess",
+        969.0,
+        2,
+        0,
+        2
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-09",
+        "{{child}}",
+        "perf-cat-chess",
+        1031.0,
+        2,
+        2,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-10",
+        "{{me}}",
+        "perf-cat-chess",
+        1016.0,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-11",
+        "{{adult2}}",
+        "perf-cat-mariokart",
+        998.0,
+        4,
+        2,
+        2
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-12",
+        "{{child}}",
+        "perf-cat-mariokart",
+        954.0,
+        3,
+        0,
+        3
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-13",
+        "{{me}}",
+        "perf-cat-mariokart",
+        1031.0,
+        2,
+        2,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-14",
+        "{{child2}}",
+        "perf-cat-mariokart",
+        1001.0,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-15",
+        "{{partner}}",
+        "perf-cat-mariokart",
+        1016.0,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-16",
+        "{{child}}",
+        "perf-cat-darts",
+        999.0,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-17",
+        "{{child2}}",
+        "perf-cat-darts",
+        1001.0,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-18",
+        "{{partner}}",
+        "perf-cat-darts",
+        983.0,
+        1,
+        0,
+        1
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-19",
+        "{{me}}",
+        "perf-cat-darts",
+        1017.0,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-20",
+        "{{child2}}",
+        "perf-cat-cards",
+        1031.0,
+        2,
+        2,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-21",
+        "{{me}}",
+        "perf-cat-cards",
+        1001.0,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-22",
+        "{{adult2}}",
+        "perf-cat-cards",
+        999.0,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-23",
+        "{{partner}}",
+        "perf-cat-cards",
+        969.0,
+        2,
+        0,
+        2
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-24",
+        "{{partner}}",
+        "perf-cat-foosball",
+        1031.0,
+        2,
+        2,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-25",
+        "{{child}}",
+        "perf-cat-foosball",
+        1031.0,
+        2,
+        2,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-26",
+        "{{me}}",
+        "perf-cat-foosball",
+        984.0,
+        1,
+        0,
+        1
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-27",
+        "{{adult2}}",
+        "perf-cat-foosball",
+        969.0,
+        2,
+        0,
+        2
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_leaderboard__lb_ratings (id, member_id, category_id, rating, games_played, wins, losses) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "params": [
+        "perf-rating-28",
+        "{{child2}}",
+        "perf-cat-foosball",
+        985.0,
+        1,
+        0,
+        1
+      ]
+    }
+  ]
+}
