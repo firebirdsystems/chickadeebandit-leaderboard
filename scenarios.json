@@ -431,6 +431,21 @@
           "expect": { "status": 200, "rowCount": 0 }
         }
       ]
+    },
+    {
+      "name": "in a shared space a recorded match is final for everyone: neither a participant adult nor the steward can edit or remove it",
+      "context": "shared_space",
+      "members": {"pat": "adult", "sam": "adult", "steward": "admin"},
+      "steps": [
+        {"action": "seedRaw", "sql": "INSERT INTO app_leaderboard__lb_categories (id, name, icon, game_type, created_at, created_by) VALUES ('cat1', 'Darts', '', '1v1', '2026-01-01T00:00:00Z', ?)", "params": ["{{steward}}"]},
+        {"action": "seedRaw", "sql": "INSERT INTO app_leaderboard__lb_matches (id, category_id, played_at, notes, logged_by, visibility) VALUES ('m1', 'cat1', '2026-01-02T00:00:00Z', 'best of three', ?, 'everyone')", "params": ["{{pat}}"]},
+        {"action": "db", "as": "sam", "sql": "SELECT id FROM app_leaderboard__lb_matches", "expect": {"status": 200, "rowCount": 1}},
+        {"action": "db", "as": "sam", "sql": "UPDATE app_leaderboard__lb_matches SET notes = 'rigged' WHERE id = 'm1' RETURNING id", "expect": {"rowCount": 0}},
+        {"action": "db", "as": "steward", "sql": "UPDATE app_leaderboard__lb_matches SET notes = 'corrected' WHERE id = 'm1' RETURNING id", "expect": {"rowCount": 0}},
+        {"action": "db", "as": "sam", "sql": "DELETE FROM app_leaderboard__lb_matches WHERE id = 'm1' RETURNING id", "expect": {"rowCount": 0}},
+        {"action": "db", "as": "steward", "sql": "DELETE FROM app_leaderboard__lb_matches WHERE id = 'm1' RETURNING id", "expect": {"rowCount": 0}},
+        {"action": "db", "as": "pat", "sql": "SELECT id, notes FROM app_leaderboard__lb_matches", "expect": {"status": 200, "rowCount": 1, "rowsContain": [{"id": "m1", "notes": "best of three"}]}}
+      ]
     }
   ]
 }
