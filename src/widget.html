@@ -43,6 +43,7 @@
       color: #9ca3af;
       text-align: center;
     }
+    .empty[hidden] { display: none; }
     .empty .icon { font-size: 1.8rem; }
     .empty p { font-size: 12px; }
 
@@ -75,6 +76,7 @@
     .member-games { font-size: 10px; color: #9ca3af; margin-left: 4px; }
 
     .no-composite { font-size: 11px; color: #9ca3af; font-style: italic; }
+    .load-error { margin: 8px; padding: 8px 10px; border-radius: 10px; background: var(--hub-tint-danger, #fee2e2); color: var(--hub-tint-danger-fg, #b91c1c); font-size: 0.8rem; }
   </style>
 </head>
 <body>
@@ -86,7 +88,7 @@
 </div>
 
 <div class="content" id="content">
-  <div class="empty">
+  <div class="empty" hidden>
     <span class="icon"></span>
     <p>No matches recorded yet</p>
   </div>
@@ -118,10 +120,13 @@ async function db(sql, params = []) {
 async function init() {
   let members = [];
   if (CONTEXT) {
-    try {
-      const res = await fetch(`${CONTEXT}?keys=family.members`);
-      members = ((await res.json())["family.members"]) ?? [];
-    } catch {}
+    // Rankings are built from the roster: one that cannot be read is a failed
+    // load, not "no matches". A 200 naming it in `$errors` is the same failure.
+    const res = await fetch(`${CONTEXT}?keys=family.members`);
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json || typeof json !== "object") throw new Error("Couldn’t reach the hub. Try again.");
+    if (Array.isArray(json.$errors) && json.$errors.includes("family.members")) throw new Error("Couldn’t reach the hub. Try again.");
+    members = json["family.members"] ?? [];
   }
 
   const { rows: ratingRows } = await db(
@@ -157,9 +162,14 @@ async function init() {
   }).join("");
 }
 
-init().catch(() => {
-  const note = document.querySelector("#content .empty p");
-  if (note) note.textContent = "Could not load rankings";
+init().then(() => {
+  // The resting empty state is hidden until the first read settles: the tile
+  // must not say "none" before it knows. Content, if any, has replaced it.
+  const empty = document.querySelector("#content .empty");
+  if (empty) empty.hidden = false;
+}).catch(() => {
+  // In place of the resting "No matches recorded yet", which would be a guess.
+  document.getElementById("content").innerHTML = `<div class="load-error" data-testid="load-error" role="alert">Couldn’t load the rankings.</div>`;
 });
 </script>
 </body>
