@@ -110,7 +110,9 @@ async function db(sql, params = []) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sql, params }),
   });
-  return res.json();
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || "Couldn’t reach the hub. Try again.");
+  return json;
 }
 
 async function init() {
@@ -155,7 +157,10 @@ async function init() {
   }).join("");
 }
 
-init();
+init().catch(() => {
+  const note = document.querySelector("#content .empty p");
+  if (note) note.textContent = "Could not load rankings";
+});
 </script>
 </body>
 </html>

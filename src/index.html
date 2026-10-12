@@ -366,6 +366,12 @@
       z-index: 200;
     }
     .toast.visible { opacity: 1; }
+    .load-error { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; background: var(--hub-tint-danger, #fee2e2); color: var(--hub-tint-danger-fg, #b91c1c); font-size: 0.9rem; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+    .load-error-retry { background: none; border: 1px solid currentColor; border-radius: 8px; padding: 5px 10px; font: inherit; font-weight: 600; color: inherit; cursor: pointer; flex-shrink: 0; }
+    body > .load-error { margin: 20px; }
+    .load-error[hidden] { display: none; }
+    /* Nothing was read: no tabs, no "no matches yet", nothing to record over. */
+    body.load-failed .tab-nav, body.load-failed .view { display: none !important; }
   </style>
 </head>
 <body>
@@ -374,6 +380,9 @@
   <button class="back-btn" id="back-btn" data-testid="back" onclick="goBack()">← <span id="back-label">Back</span></button>
   <h1 class="app-title" id="app-title" data-testid="app-title">Leaderboard</h1>
 </div>
+
+<div id="load-error" class="load-error" data-testid="load-error" role="alert" hidden><span>Couldn’t load the leaderboard.</span>
+  <button type="button" class="load-error-retry" data-testid="load-retry" onclick="retryLoad()">Try again</button></div>
 
 <nav class="tab-nav" id="tab-nav">
   <button class="active" data-testid="tab-rankings" onclick="switchTab('rankings')">Rankings</button>
@@ -564,11 +573,9 @@ async function db(sql, params = []) {
   // followed referenced a category that was never created. The schema has no
   // foreign keys, so nothing downstream noticed; the household simply had
   // matches and ratings attached to nothing, invisible in every category view.
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`app-db ${res.status}: ${detail.slice(0, 200)}`);
-  }
-  return res.json();
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || "Couldn’t reach the hub. Try again.");
+  return json;
 }
 
 // Atomic multi-statement form of /api/db. Recording one match is a match row,
@@ -597,8 +604,8 @@ async function dbBatch(statements) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ statements }),
   });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body?.error ?? `batch failed (${res.status})`);
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body || typeof body !== "object" || body.error) throw new Error(body?.error || "Couldn’t reach the hub. Try again.");
   return body.results ?? [];
 }
 
@@ -654,9 +661,23 @@ async function dbBatchOnce(statements) {
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 async function init() {
-  await Promise.all([loadMembers(), loadData()]);
+  try {
+    await Promise.all([loadMembers(), loadData()]);
+  } catch (e) {
+    console.error(e);
+    // The banner says the read failed; the tabs stay hidden rather than read "no matches yet".
+    setLoadFailed(true);
+    return;
+  }
+  setLoadFailed(false);
   renderRankings();
 }
+
+function setLoadFailed(failed) {
+  document.body.classList.toggle("load-failed", failed);
+  document.getElementById("load-error").hidden = !failed;
+}
+window.retryLoad = () => init().then(handleDeepLink);
 
 // ── Games finished in other apps ──────────────────────────────────────────────
 // A game.completed from Sea Battle or Quiet Time is imported by the HUB, not by
@@ -699,10 +720,13 @@ async function loadMembers() {
     ];
     return;
   }
-  try {
-    const res = await fetch(`${CONTEXT}?keys=family.members`);
-    members = ((await res.json())["family.members"]) ?? [];
-  } catch { members = []; }
+  // A roster that cannot be read is a failed load, not an empty household.
+  const res = await fetch(`${CONTEXT}?keys=family.members`);
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json || typeof json !== "object") throw new Error("Couldn’t reach the hub. Try again.");
+  // A 200 that names the roster in `$errors` is the hub failing to read it.
+  if (Array.isArray(json.$errors) && json.$errors.includes("family.members")) throw new Error("Couldn’t reach the hub. Try again.");
+  members = json["family.members"] ?? [];
 }
 
 async function loadData() {
@@ -833,7 +857,7 @@ function loggedByLabel(match) {
   return `<span>· logged by ${esc(m ? m.name : "a former member")}</span>`;
 }
 
-window.openCategoryDetail = async function(categoryId) {
+window.openCategoryDetail = toastOnFailure("Could not load this category. Try again.", async function(categoryId) {
   currentCategoryId = categoryId;
   const cat = categories.find(c => c.id === categoryId);
   if (!cat) return;
@@ -965,7 +989,7 @@ window.openCategoryDetail = async function(categoryId) {
       `;
     }).join("");
   }
-};
+});
 
 window.goBack = function() {
   switchTab(currentTab);
@@ -1228,13 +1252,15 @@ window.submitMatch = async function() {
       winner_member_id: winners.length === 1 && winningSide !== "draw" ? winners[0].memberId : null,
     });
 
-    // Refresh data and go to rankings
-    await loadData();
+    // Refresh data and go to rankings. The match is saved by now, so a failed
+    // refresh must not read as a failed save.
+    await loadData().catch(() => {});
     renderRankings();
     showToast("Match recorded! 🏆");
     switchTab("rankings");
   } catch (e) {
     console.error(e);
+    showToast("Could not save the match. Try again.");
     btn.disabled = false;
     btn.textContent = "Save Match";
   }
@@ -1317,6 +1343,19 @@ window.createCategory = async function() {
 };
 
 // ── Toast ──────────────────────────────────────────────────────────────────────
+// Runs a member's action and says so in the toast when it fails, instead of
+// leaving the failure as an unhandled rejection.
+function toastOnFailure(message, fn) {
+  return async (...args) => {
+    try {
+      return await fn(...args);
+    } catch (e) {
+      console.error(e);
+      showToast(message);
+    }
+  };
+}
+
 let toastTimer = null;
 function showToast(msg) {
   const el = document.getElementById("toast");
@@ -1382,6 +1421,8 @@ async function voidMatch(matchId) {
 }
 
 function handleDeepLink() {
+  // Nothing was read: there is no category to open, and the banner is showing.
+  if (document.body.classList.contains("load-failed")) return;
   const categoryId = new URLSearchParams(window.location.search).get("categoryId");
   if (!categoryId) return;
   openCategoryDetail(categoryId);
