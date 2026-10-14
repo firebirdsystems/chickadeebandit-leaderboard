@@ -59,9 +59,6 @@
       "on_removed": "delete"
     }
   },
-  "resource_limits": {
-    "max_db_bytes": 52428800
-  },
   "row_policies": {
     "lb_categories": {
       "kind": "adult_writable"
