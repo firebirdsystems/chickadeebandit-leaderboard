@@ -96,7 +96,7 @@ ALTER TABLE app_leaderboard__lb_matches ADD COLUMN source_event_seq INTEGER NOT 
 -- that no longer exists. One row lets the guard compare (epoch, sequence)
 -- together, so an older generation can never win.
 CREATE TABLE IF NOT EXISTS app_leaderboard__lb_sync (
-  key   TEXT PRIMARY KEY,
+  key   TEXT NOT NULL PRIMARY KEY,
   value INTEGER NOT NULL DEFAULT 0,
   epoch INTEGER NOT NULL DEFAULT 0
 );

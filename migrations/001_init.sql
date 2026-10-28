@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS app_leaderboard__lb_categories (
-  id           TEXT PRIMARY KEY,
+  id           TEXT NOT NULL PRIMARY KEY,
   name         TEXT NOT NULL,
   icon         TEXT NOT NULL DEFAULT '🏆',
   game_type    TEXT NOT NULL DEFAULT '1v1',
@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS app_leaderboard__lb_categories (
 );
 
 CREATE TABLE IF NOT EXISTS app_leaderboard__lb_matches (
-  id              TEXT PRIMARY KEY,
+  id              TEXT NOT NULL PRIMARY KEY,
   category_id     TEXT NOT NULL,
   played_at       TEXT NOT NULL,
   notes           TEXT,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS app_leaderboard__lb_matches (
 );
 
 CREATE TABLE IF NOT EXISTS app_leaderboard__lb_participants (
-  id            TEXT PRIMARY KEY,
+  id            TEXT NOT NULL PRIMARY KEY,
   match_id      TEXT NOT NULL,
   member_id     TEXT NOT NULL,
   team          INTEGER NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS app_leaderboard__lb_participants (
 );
 
 CREATE TABLE IF NOT EXISTS app_leaderboard__lb_ratings (
-  id           TEXT PRIMARY KEY,
+  id           TEXT NOT NULL PRIMARY KEY,
   member_id    TEXT NOT NULL,
   category_id  TEXT NOT NULL,
   rating       REAL NOT NULL DEFAULT 1000,

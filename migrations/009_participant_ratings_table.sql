@@ -29,7 +29,7 @@
 -- included, for the statements a migration may not contain, so spelling that
 -- prohibition out here would fail the build on its own explanation.
 CREATE TABLE IF NOT EXISTS app_leaderboard__lb_participant_ratings (
-  participant_id TEXT PRIMARY KEY,
+  participant_id TEXT NOT NULL PRIMARY KEY,
   match_id       TEXT NOT NULL,
   member_id      TEXT NOT NULL,
   rating_before  REAL NOT NULL,
